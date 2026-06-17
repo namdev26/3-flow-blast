@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 00ea786d204f6714daf27a389ddfabda
+timeCreated: 1454266272
+licenseType: Store
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23930
+  packageName: VertExmotion
+  packageVersion: 1.10.7
+  assetPath: Assets/VertExmotion/Shaders/VertExMotionSprites-Default.shader
+  uploadId: 686913

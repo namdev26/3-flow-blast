@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 0d37e36ddb6c45c4db973485a27eadd4
+ShaderImporter:
+  defaultTextures: []
+  userData: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23930
+  packageName: VertExmotion
+  packageVersion: 1.10.7
+  assetPath: Assets/VertExmotion/Shaders/VertExmotion.cginc
+  uploadId: 686913

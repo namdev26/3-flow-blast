@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 7158e300f5916ba479e7e451d01cf1cd
+timeCreated: 1587553772
+licenseType: Store
+ComputeShaderImporter:
+  currentAPIMask: 4
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23930
+  packageName: VertExmotion
+  packageVersion: 1.10.7
+  assetPath: Assets/VertExmotion/Shaders/Resources/VertExmotionBakeMesh.compute
+  uploadId: 686913

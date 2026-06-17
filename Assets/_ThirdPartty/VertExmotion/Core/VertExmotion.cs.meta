@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 000b62482df0b064da5f449c29977db1
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23930
+  packageName: VertExmotion
+  packageVersion: 1.10.7
+  assetPath: Assets/VertExmotion/Core/VertExmotion.cs
+  uploadId: 686913

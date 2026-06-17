@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 698fbf4fce2fab744bfa4e75c8ef9346
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23930
+  packageName: VertExmotion
+  packageVersion: 1.10.7
+  assetPath: Assets/VertExmotion/Core/VertExmotionSensor.cs
+  uploadId: 686913

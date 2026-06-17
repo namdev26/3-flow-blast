@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7c8d9365d7030ed48b5d79502917f2d1
+timeCreated: 1541598044
+licenseType: Store
+DefaultImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 23930
+  packageName: VertExmotion
+  packageVersion: 1.10.7
+  assetPath: Assets/VertExmotion/Doc/VertExmotion_documentation.pdf
+  uploadId: 686913
