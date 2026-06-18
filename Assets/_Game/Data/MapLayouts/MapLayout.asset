@@ -15,10 +15,8 @@ MonoBehaviour:
   layoutId: MapLayout
   isClosedLoop: 1
   waypointLocalPositions:
-  - {x: -2.4, y: 0, z: -4}
-  - {x: -3.2, y: 0, z: 0}
-  - {x: -2, y: 0, z: 4}
-  - {x: 2, y: 0, z: 4}
-  - {x: 3.2, y: 0, z: 0}
-  - {x: 2.4, y: 0, z: -4}
-  boxQueueLocalPosition: {x: -2, y: 0, z: -3}
+  - {x: -2, y: 0, z: -2}
+  - {x: -2, y: 0, z: 2}
+  - {x: 2, y: 0, z: 2}
+  - {x: 2, y: 0, z: -2}
+  boxQueueLocalPosition: {x: -6, y: 0, z: 6}

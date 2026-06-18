@@ -45,6 +45,7 @@ namespace FlowBlast.Patterns.Pool
             }
 
             item.ResetView();
+            item.transform.SetParent(parent, false);
             item.gameObject.SetActive(false);
             availableItems.Enqueue(item);
         }

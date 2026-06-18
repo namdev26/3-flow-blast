@@ -70,7 +70,6 @@ namespace FlowBlast.Presentation.Block
             laneSpacing = 0f;
             isActiveOnBelt = false;
             smoothedRotation = default;
-            transform.SetParent(null, false);
         }
 
         private void ApplyColor(Color color)
