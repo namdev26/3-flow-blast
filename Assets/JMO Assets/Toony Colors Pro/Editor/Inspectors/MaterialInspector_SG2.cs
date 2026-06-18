@@ -1,5 +1,5 @@
 // Toony Colors Pro+Mobile 2
-// (c) 2014-2021 Jean Moreno
+// (c) 2014-2023 Jean Moreno
 
 //Enable this to display the default Inspector (in case the custom Inspector is broken)
 //#define SHOW_DEFAULT_INSPECTOR
@@ -120,7 +120,7 @@ namespace ToonyColorsPro
 						else
 						{
 							//Draw regular property
-							if (visible && (p.propertyFlags & (ShaderPropertyFlags.PerRendererData | ShaderPropertyFlags.HideInInspector)) == ShaderPropertyFlags.None)
+							if (visible && (TCP2_MaterialPropertyUtility.GetPropertyFlags(p) & (ShaderPropertyFlags.PerRendererData | ShaderPropertyFlags.HideInInspector)) == ShaderPropertyFlags.None)
 							{
 								_materialEditor.ShaderProperty(p, p.displayName);
 							}

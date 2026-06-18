@@ -1,5 +1,5 @@
 // Toony Colors Pro+Mobile 2
-// (c) 2014-2021 Jean Moreno
+// (c) 2014-2023 Jean Moreno
 
 //Enable this to display the default Inspector (in case the custom Inspector is broken)
 //#define SHOW_DEFAULT_INSPECTOR
@@ -774,7 +774,7 @@ public class TCP2_MaterialInspector : ShaderGUI
 		var propertiesShown = false;
 		foreach (var p in properties)
 		{
-			if ((p.propertyFlags & (ShaderPropertyFlags.PerRendererData | ShaderPropertyFlags.HideInInspector)) == ShaderPropertyFlags.None)
+			if ((TCP2_MaterialPropertyUtility.GetPropertyFlags(p) & (ShaderPropertyFlags.PerRendererData | ShaderPropertyFlags.HideInInspector)) == ShaderPropertyFlags.None)
 				propertiesShown |= ShaderMaterialPropertyImpl(p, filter);
 		}
 

@@ -1,5 +1,5 @@
 // Toony Colors Pro 2
-// (c) 2014-2021 Jean Moreno
+// (c) 2014-2023 Jean Moreno
 
 using System;
 using System.Collections.Generic;
@@ -21,9 +21,9 @@ namespace ToonyColorsPro
 	{
 		public class ShaderGenerator2 : EditorWindow
 		{
-			public static bool DebugMode = false;
+			public static bool DEBUG_MODE = false;
 
-			internal const string TCP2_VERSION = "2.8.0";
+			internal const string TCP2_VERSION = "2.9.16";
 			internal const string DOCUMENTATION_URL = "https://jeanmoreno.com/unity/toonycolorspro/doc/shader_generator_2";
 			internal const string OUTPUT_PATH = "/JMO Assets/Toony Colors Pro/Shaders Generated/";
 
@@ -43,6 +43,31 @@ namespace ToonyColorsPro
 			static void OpenTool()
 			{
 				GetWindowTCP2();
+			}
+
+			[MenuItem(Menu.MENU_PATH + "Update Selected Shaders with the Shader Generator 2", false, 800)]
+			static void UpdateSelectedShaders()
+			{
+				foreach (Object obj in Selection.objects)
+				{
+					var shaderList = new List<Shader>();
+					{
+						if (obj is Shader shader)
+						{
+							shaderList.Add(shader);
+						}
+					}
+
+					for (int i = 0; i < shaderList.Count; i++)
+					{
+						Shader shader = shaderList[i];
+						var sg2 = GetWindowTCP2();
+						if (sg2.LoadCurrentConfigFromShader(shader, true))
+						{
+							sg2.GenerateOrUpdateShader(true);
+						}
+					}
+				}
 			}
 
 			internal static ShaderGenerator2 OpenWithShader(Shader shader)
@@ -555,9 +580,16 @@ namespace ToonyColorsPro
 
 				if (GUILayout.Button(TCP2_GUI.TempContent("Reload"), EditorStyles.miniButton, GUILayout.ExpandWidth(false)))
 				{
-					//Twice to prevent bug with used variable names
-					LoadNewTemplate(template.textAsset);
-					LoadNewTemplate(template.textAsset);
+					if (currentShader != null)
+					{
+						LoadCurrentConfigFromShader(currentShader);
+					}
+					else
+					{
+						//Twice to prevent bug with used variable names
+						LoadNewTemplate(template.textAsset);
+						LoadNewTemplate(template.textAsset);
+					}
 				}
 
 				EditorGUILayout.EndHorizontal();
@@ -662,7 +694,7 @@ namespace ToonyColorsPro
 				{
 					EditorGUILayout.BeginHorizontal();
 					currentConfig.Filename = EditorGUILayout.TextField(TCP2_GUI.TempContent("Filename", "The filename for the generated shader." + (ProjectOptions.data.AutoNames ? "" : "\nYou can input your own by disabling the auto-filename option in the options below.")), currentConfig.Filename);
-					currentConfig.Filename = Regex.Replace(currentConfig.Filename, @"[^a-zA-Z0-9 _!/]", "");
+					currentConfig.Filename = Regex.Replace(currentConfig.Filename, "[/?<>\\:*|\"]", "");
 					GUILayout.Label(".shader", GUILayout.Width(50f));
 					EditorGUILayout.EndHorizontal();
 				}
@@ -1023,7 +1055,7 @@ namespace ToonyColorsPro
 				}
 			}
 
-			public void GenerateOrUpdateShader()
+			public void GenerateOrUpdateShader(bool force = false)
 			{
 				currentConfig.templateFile = template.textAsset.name;
 				currentConfig.OnBeforeGenerateShader();
@@ -1031,7 +1063,7 @@ namespace ToonyColorsPro
 				Shader generatedShader = null;
 				try
 				{
-					generatedShader = Compile(currentConfig, currentShader, template, true, !ProjectOptions.data.OverwriteConfig);
+					generatedShader = Compile(currentConfig, currentShader, template, true, !ProjectOptions.data.OverwriteConfig && !force, !force);
 				}
 				finally
 				{
@@ -1080,6 +1112,7 @@ namespace ToonyColorsPro
 			void NewShader()
 			{
 				currentShader = null;
+				_template = null;
 				template.ResetShaderProperties();
 				LoadConfig(new Config(), false);
 			}
@@ -1090,9 +1123,13 @@ namespace ToonyColorsPro
 				if (currentShader != null)
 				{
 					outputDir = AssetDatabase.GetAssetPath(currentShader);
-					if (!string.IsNullOrEmpty(outputDir) && outputDir.StartsWith("Assets/"))
+					if (!string.IsNullOrEmpty(outputDir))
 					{
-						outputDir = Path.GetDirectoryName(outputDir).Substring("Assets/".Length);
+						outputDir = Path.GetDirectoryName(outputDir);
+						if (outputDir.StartsWith("Assets"))
+						{
+							outputDir = outputDir.Substring("Assets".Length);
+						}
 					}
 				}
 
@@ -1102,13 +1139,13 @@ namespace ToonyColorsPro
 				this.currentConfig.Filename += " Copy";
 				this.currentConfig.isModifiedExternally = false;
 
-				if (!string.IsNullOrEmpty(outputDir))
+				if (outputDir != null)
 				{
 					ProjectOptions.data.CustomOutputPath = outputDir;
 				}
 			}
 
-			public void LoadCurrentConfigFromShader(Shader shader)
+			bool LoadCurrentConfigFromShader(Shader shader, bool silentFail = false)
 			{
 				var newConfig = Config.CreateFromShader(shader);
 				if (newConfig != null)
@@ -1125,11 +1162,17 @@ namespace ToonyColorsPro
 					template.ApplyKeywords(currentConfig);
 
 					currentHash = currentConfig.ToHash();
+
+					return true;
 				}
 				else
 				{
-					EditorApplication.Beep();
-					ShowNotification(TCP2_GUI.TempContent("Invalid shader loaded:\nit has not been generated\nwith the Shader Generator 2!"));
+					if (!silentFail)
+					{
+						EditorApplication.Beep();
+						ShowNotification(TCP2_GUI.TempContent("Invalid shader loaded:\nit has not been generated\nwith the Shader Generator 2!"));
+					}
+					return false;
 				}
 			}
 
@@ -1860,6 +1903,19 @@ namespace ToonyColorsPro
 								{
 									cmp = impMpTex.LinkedCustomMaterialProperty;
 								}
+
+								var impCc = imp as ShaderProperty.Imp_CustomCode;
+								if (impCc != null)
+								{
+									foreach (var customMaterialProperty in config.CustomMaterialProperties)
+									{
+										if (impCc.code.Contains(customMaterialProperty.PropertyName) || impCc.prependCode.Contains(customMaterialProperty.PropertyName))
+										{
+											cmp = customMaterialProperty;
+											break;
+										}
+									}
+								}
 							}
 							
 							if (cmp != null)
@@ -2084,6 +2140,7 @@ namespace ToonyColorsPro
 						{
 							// Terrain always needs TEXCOORD0
 							AddUvChannelUsage(usedUvChannelsVertex, 0, 2);
+							AddUvChannelUsage(usedUvChannelsFragment, 0, 2);
 						}
 
 						uvChannelGlobalTilingOffset = new Dictionary<int, List<ShaderProperty.Imp_MaterialProperty_Texture>>();
@@ -2106,6 +2163,21 @@ namespace ToonyColorsPro
 						var processedCustomMaterialProperties = new HashSet<ShaderProperty.CustomMaterialProperty>();
 						foreach (var sp in shaderPropertiesAndClones)
 						{
+							bool isUsedInFragment = sp.Program == ShaderProperty.ProgramType.Fragment;
+							// If Material Layer source (or contrast/noise), find if any of the properties that use it is used in Fragment shader
+							if (sp.isMaterialLayerProperty)
+							{
+								foreach (var sp2 in shaderPropertiesAndClones)
+								{
+									if (sp2.Program == ShaderProperty.ProgramType.Fragment
+									    && sp2.linkedMaterialLayers.Contains(sp.materialLayerUid))
+									{
+										isUsedInFragment = true;
+										break;
+									}
+								}
+							}
+
 							foreach (var imp in sp.implementations)
 							{
 								var vertexUvImp = imp as ShaderProperty.Imp_VertexTexcoord;
@@ -2113,7 +2185,7 @@ namespace ToonyColorsPro
 								{
 									AddUvChannelUsage(usedUvChannelsVertex, vertexUvImp.TexcoordChannel, 2);
 
-									if (sp.Program == ShaderProperty.ProgramType.Fragment)
+									if (isUsedInFragment)
 									{
 										int dimensions = 2;
 										if (vertexUvImp.Channels.Contains("W"))
@@ -2165,7 +2237,7 @@ namespace ToonyColorsPro
 								{
 									AddUvChannelUsage(usedUvChannelsVertex, textureImp.UvChannel, 2);
 
-									if (sp.Program == ShaderProperty.ProgramType.Fragment || isCustomMaterialPropertyFragment)
+									if (isUsedInFragment || isCustomMaterialPropertyFragment)
 									{
 										AddUvChannelUsage(usedUvChannelsFragment, textureImp.UvChannel, 2);
 									}
@@ -2298,7 +2370,7 @@ namespace ToonyColorsPro
 							}
 							else
 							{
-								Debug.LogError(ErrorMsg("No match for '<b>PROP:" + propName + "'</b>"));
+								Debug.LogError(ErrorMsg("No match for '<b>PROP:" + propName + "'</b>\nLine " + templateLines[i].lineNumber + ": " + line));
 							}
 						}
 						//output code to declare texture coordinates and necessary vertex-to-fragment variables, packed as float4 (for v2f struct)
@@ -2555,7 +2627,7 @@ namespace ToonyColorsPro
 											if (isOutsideCBuffer)
 											{
 												string declarations = sp.PrintVariableDeclareOutsideCBuffer(indent);
-												if (!string.IsNullOrEmpty(declarations))
+												if (!string.IsNullOrWhiteSpace(declarations))
 												{
 													tempString += declarations + "\n";
 												}
@@ -2563,7 +2635,7 @@ namespace ToonyColorsPro
 											else
 											{
 												string declarations = sp.PrintVariableDeclare(false, indent);
-												if (!string.IsNullOrEmpty(declarations) && !cgIncludeShaderProperties.Contains(sp))
+												if (!string.IsNullOrWhiteSpace(declarations) && !cgIncludeShaderProperties.Contains(sp))
 												{
 													tempString += declarations + "\n";
 													cgIncludeShaderProperties.Add(sp);
@@ -2584,7 +2656,7 @@ namespace ToonyColorsPro
 												}
 
 												var prop = sp.PrintVariableDeclare(false, indent);
-												if (!string.IsNullOrEmpty(prop))
+												if (!string.IsNullOrWhiteSpace(prop))
 												{
 													tempString += prop + "\n";
 												}
@@ -2607,8 +2679,104 @@ namespace ToonyColorsPro
 									isInIncludeBlock = true;
 									goto case "VARIABLES_GPU_INSTANCING";
 
-								case "VARIABLES_GPU_INSTANCING":
+								case "VARIABLES_DOTS_INSTANCING_INCLUDE":
+								{
+									string indentPlusOne = indent + "\t";
+									string declaredProperties = "";
+									string propertiesAccessMacros = "";
 
+									// Custom Material Properties
+									var dotsInstancedCustomMaterialProperties = new List<CustomMaterialPropertyUsage>();
+									foreach (var list in usedCustomMaterialProperties)
+									{
+										foreach (CustomMaterialPropertyUsage cmpUsage in list)
+										{
+											if (!cmpUsage.customMaterialProperty.IsDotsInstanced) continue;
+
+											if (!dotsInstancedCustomMaterialProperties.Exists(otherCmp => otherCmp.customMaterialProperty == cmpUsage.customMaterialProperty))
+											{
+												dotsInstancedCustomMaterialProperties.Add(cmpUsage);
+											}
+										}
+									}
+
+									var hashset = new HashSet<ShaderProperty.CustomMaterialProperty>();
+									foreach (CustomMaterialPropertyUsage ctUsage in dotsInstancedCustomMaterialProperties)
+									{
+										if (!hashset.Contains(ctUsage.customMaterialProperty))
+										{
+											string prop = ctUsage.customMaterialProperty.PrintVariablesDeclare(false, "");
+
+											int whiteSpaceIndex = prop.IndexOf(' ');
+											string variableType = prop.Substring(0, whiteSpaceIndex).Replace("fixed", "float").Replace("half", "float");
+											string variableName = prop.Substring(whiteSpaceIndex + 1).TrimEnd(';');
+											declaredProperties += $"{indentPlusOne}UNITY_DOTS_INSTANCED_PROP({variableType}, {variableName})\n";
+											propertiesAccessMacros += $"{indent}#define {variableName,-32} UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT ({variableType,-8}, {variableName})\n";
+
+											hashset.Add(ctUsage.customMaterialProperty);
+										}
+									}
+
+									if (!string.IsNullOrEmpty(declaredProperties))
+									{
+										declaredProperties = indentPlusOne + "// Custom Material Properties\n" + declaredProperties;
+									}
+
+									// Shader Properties
+									string declaredShaderProperties = "";
+									var allUsedShaderProperties = new List<ShaderProperty>();
+									foreach (var list in usedShaderPropertiesPerPass)
+									{
+										foreach (ShaderProperty sp in list)
+										{
+											if (!allUsedShaderProperties.Contains(sp))
+											{
+												allUsedShaderProperties.Add(sp);
+											}
+										}
+									}
+
+									foreach (ShaderProperty sp in allUsedShaderProperties)
+									{
+										var propertiesList = sp.PrintVariablesDeclareDotsInstancing();
+										foreach (string prop in propertiesList)
+										{
+											if (string.IsNullOrEmpty(prop)) continue;
+
+											int whiteSpaceIndex = prop.IndexOf(' ');
+											string variableType = prop.Substring(0, whiteSpaceIndex).Replace("fixed", "float").Replace("half", "float");
+											string variableName = prop.Substring(whiteSpaceIndex + 1).TrimEnd(';');
+											declaredShaderProperties += $"{indentPlusOne}UNITY_DOTS_INSTANCED_PROP({variableType}, {variableName})\n";
+											propertiesAccessMacros += $"{indent}#define {variableName,-32} UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT ({variableType,-8}, {variableName})\n";
+										}
+									}
+
+									if (!string.IsNullOrEmpty(declaredShaderProperties))
+									{
+										declaredProperties += indentPlusOne + "// Shader Properties\n" + declaredShaderProperties;
+									}
+
+									declaredProperties = declaredProperties.TrimEnd();
+
+									if (!string.IsNullOrEmpty(declaredProperties))
+									{
+										var sb = new StringBuilder();
+										sb.AppendLine();
+										sb.AppendLine(indent + "// DOTS Instancing support for this shader");
+										sb.AppendLine(indent + "UNITY_DOTS_INSTANCING_START(UserPropertyMetadata)");
+										sb.AppendLine("{0}");
+										sb.AppendLine(indent + "UNITY_DOTS_INSTANCING_END(UserPropertyMetadata)");
+										sb.AppendLine("");
+										sb.AppendLine("{1}");
+
+										replacement = string.Format(sb.ToString(), declaredProperties, propertiesAccessMacros);
+									}
+
+									break;
+								}
+
+								case "VARIABLES_GPU_INSTANCING":
+								{
 									var indentPlusOne = indent + "\t";
 
 
@@ -2635,7 +2803,7 @@ namespace ToonyColorsPro
 												&& !hashset.Contains(ctUsage.customMaterialProperty)
 												&& !cgIncludeCustomMaterialProperties.Contains(ctUsage.customMaterialProperty))
 											{
-												replacement += indentPlusOne + ctUsage.customMaterialProperty.PrintVariablesDeclare(true, indentPlusOne) + "\n";
+												replacement += ctUsage.customMaterialProperty.PrintVariablesDeclare(true, indentPlusOne) + "\n";
 
 												hashset.Add(ctUsage.customMaterialProperty);
 												cgIncludeCustomMaterialProperties.Add(ctUsage.customMaterialProperty);
@@ -2651,7 +2819,7 @@ namespace ToonyColorsPro
 											{
 												if (ctUsage.customMaterialProperty.IsGpuInstanced && !hashset.Contains(ctUsage.customMaterialProperty) && !cgIncludeCustomMaterialProperties.Contains(ctUsage.customMaterialProperty))
 												{
-													replacement += indentPlusOne + ctUsage.customMaterialProperty.PrintVariablesDeclare(true, indentPlusOne) + "\n";
+													replacement += ctUsage.customMaterialProperty.PrintVariablesDeclare(true, indentPlusOne) + "\n";
 
 													hashset.Add(ctUsage.customMaterialProperty);
 												}
@@ -2685,9 +2853,9 @@ namespace ToonyColorsPro
 										foreach (var sp in allUsedShaderProperties)
 										{
 											var prop = sp.PrintVariableDeclare(true, indentPlusOne);
-											if (!string.IsNullOrEmpty(prop) && !cgIncludeShaderProperties.Contains(sp))
+											if (!string.IsNullOrWhiteSpace(prop) && !cgIncludeShaderProperties.Contains(sp))
 											{
-												tempString += indentPlusOne + prop + "\n";
+												tempString += prop + "\n";
 												cgIncludeShaderProperties.Add(sp);
 											}
 										}
@@ -2705,9 +2873,9 @@ namespace ToonyColorsPro
 												}
 
 												var prop = sp.PrintVariableDeclare(true, indentPlusOne);
-												if (!string.IsNullOrEmpty(prop))
+												if (!string.IsNullOrWhiteSpace(prop))
 												{
-													tempString += indentPlusOne + prop + "\n";
+													tempString += prop + "\n";
 												}
 											}
 										}
@@ -2742,6 +2910,7 @@ namespace ToonyColorsPro
 
 									isInIncludeBlock = false;
 									break;
+								}
 
 								case "GPU_INSTANCING_OPTIONS":
 									if (keywords.ContainsKey("FLAGS:pragma_gpu_instancing"))
@@ -2852,7 +3021,8 @@ namespace ToonyColorsPro
 											// if necessary, first print without the modifiers to copy all channels
 											if (uvChannelsDimensions[uv] > 2 || !hasModifiers)
 											{
-												replacement += string.Format("{0}.{1} = {2}.texcoord{3}.xy;\n{4}", outputSource, variablesManager.GetVariable("texcoord" + uv), inputSource, uv, indent);
+												string swizzle = "xyzw".Substring(0, uvChannelsDimensions[uv]);
+												replacement += $"{outputSource}.{variablesManager.GetVariable("texcoord" + uv)} = {inputSource}.texcoord{uv}.{swizzle};\n{indent}";
 											}
 
 											// then handle the .xy with modifiers, if any
@@ -2869,11 +3039,6 @@ namespace ToonyColorsPro
 
 										foreach (int uv in usedUvChannelsFragment)
 										{
-											if (uvChannelsDimensions[uv] > 2)
-											{
-
-											}
-
 											printWithGlobalTilingOffset(uv, false);
 										}
 
@@ -3126,12 +3291,28 @@ namespace ToonyColorsPro
 													}
 												}
 											}
-											
-											// Sort each layer based on their order in the UI
+
+											// Material Layers: apply contrast/noise to layers source if needed
 											var sortedBlendedProperties = blendedProperties.OrderBy(kvp => config.materialLayers.FindIndex(ml => ml.uid == kvp.Key));
 											foreach (var kvp in sortedBlendedProperties)
 											{
-												var uid = kvp.Key;
+												var materialLayer = config.GetMaterialLayerByUID(kvp.Key);
+												string layerSourceVariable = materialLayer.sourceShaderProperty.GetVariableName();
+												string layerSourceVariableModified = layerSourceVariable;
+
+												if (materialLayer.UseNoiseProperty)
+													layerSourceVariableModified = string.Format("({0} + [[VALUE:{1}]])", layerSourceVariableModified, materialLayer.noiseProperty.Name);
+												if (materialLayer.UseContrastProperty)
+													layerSourceVariableModified = string.Format("saturate(({0} + ([[VALUE:{1}]] * 0.5 - 0.5)) / [[VALUE:{1}]])", layerSourceVariableModified, materialLayer.contrastProperty.Name);
+
+												if (layerSourceVariable != layerSourceVariableModified)
+													materialLayersBlending.AppendLine(string.Format($"{indent}{layerSourceVariable} = {layerSourceVariableModified};"));
+											}
+
+											// Sort each layer based on their order in the UI
+											foreach (var kvp in sortedBlendedProperties)
+											{
+												string uid = kvp.Key;
 												var list = kvp.Value;
 												foreach (var shaderProperty in list)
 												{
@@ -3141,16 +3322,55 @@ namespace ToonyColorsPro
 													// Get layer variable name + modifiers if any (noise, contrast...)
 													var ml = config.GetMaterialLayerByUID(uid);
 													string layerSourceVariable = ml.sourceShaderProperty.GetVariableName();
-													if (ml.UseNoiseProperty)
+
+													// Print layer according to blending
+													string originalProp = variableName;
+													string layerProp = string.Format("{0}_{1}", shaderProperty.GetVariableName(), ml.uid);
+													string layerSource = layerSourceVariable;
+
+													// fallback for old shaders without blending
+													if (!shaderProperty.materialLayerBlendings.ContainsKey(ml.uid))
 													{
-														layerSourceVariable = string.Format("({0} + [[VALUE:{1}]])", layerSourceVariable, ml.noiseProperty.Name);
+														shaderProperty.materialLayerBlendings.Add(ml.uid, MaterialLayer.BlendType.LinearInterpolation);
+														shaderProperty.materialLayercustomBlendings.Add(ml.uid, ShaderProperty.DefaultCustomBlending);
 													}
-													if (ml.UseContrastProperty)
+
+													if (shaderProperty.materialLayerBlendings[ml.uid] == MaterialLayer.BlendType.Custom)
 													{
-														layerSourceVariable = string.Format("saturate(({0} + ([[VALUE:{1}]] * 0.5 - 0.5)) / [[VALUE:{1}]])", layerSourceVariable, ml.contrastProperty.Name);
+														string customBlendingFormula = shaderProperty.materialLayercustomBlendings[ml.uid];
+														string pattern = @"\ba\b";
+														customBlendingFormula = Regex.Replace(customBlendingFormula, pattern, originalProp);
+														pattern = @"\bb\b";
+														customBlendingFormula = Regex.Replace(customBlendingFormula, pattern, layerProp);
+														pattern = @"\bs\b";
+														customBlendingFormula = Regex.Replace(customBlendingFormula, pattern, layerSource);
+
+														materialLayersBlending.AppendLine(string.Format("{0} {1} = {2};", indent, originalProp, customBlendingFormula));
 													}
-													
-													materialLayersBlending.AppendLine(string.Format("{0} {1} = lerp({1}, {2}_{3}, {4});", indent, variableName, shaderProperty.GetVariableName(), ml.uid, layerSourceVariable));
+													else
+													{
+														string formula;
+														switch (shaderProperty.materialLayerBlendings[ml.uid])
+														{
+															default:
+															case MaterialLayer.BlendType.LinearInterpolation:
+																formula = "lerp({0}, {1}, {2})";
+																break;
+
+															case MaterialLayer.BlendType.Add:
+																formula = "{0} + {1} * {2}";
+																break;
+
+															case MaterialLayer.BlendType.Multiply:
+																formula = "{0} * lerp(1.0, {1}, {2})";
+																break;
+
+															case MaterialLayer.BlendType.MultiplyDouble:
+																formula = "{0} * lerp(1.0, {1} * 2.0, {2})";
+																break;
+														}
+														materialLayersBlending.AppendLine(string.Format("{0} {1} = ", indent, originalProp) + string.Format(formula, originalProp, layerProp, layerSource) + ";");
+													}
 												}
 											}
 
@@ -3271,17 +3491,6 @@ namespace ToonyColorsPro
 				// Code Injection replace blocks:
 				CodeInjectionManager.instance.ProcessReplaceBlocks(stringBuilder);
 
-				if (!skipSerializationData)
-				{
-					// Add serialized data
-					stringBuilder.AppendLine(config.GetSerializedData());
-
-					// Calculate hash
-					string normalizedLineEndings = stringBuilder.ToString().Replace("\r\n", "\n");
-					var hash = GetHash(normalizedLineEndings);
-					stringBuilder.AppendLine(string.Format(Config.kHashPrefix + hash + Config.kHashSuffix));
-				}
-
 				// Convert line endings to current OS format
 				stringBuilder.Replace("\r\n", "\n");
 				stringBuilder.Replace("\n", Environment.NewLine);
@@ -3293,13 +3502,27 @@ namespace ToonyColorsPro
 				stringBuilder.Replace("shader_feature_local_vertex", "shader_feature");
 				
 				stringBuilder.Replace("multi_compile_fragment", "multi_compile");
-				// stringBuilder.Replace("multi_compile_vertex", "multi_compile");
+				stringBuilder.Replace("multi_compile_vertex", "multi_compile");
+				stringBuilder.Replace("multi_compile_local_fragment", "multi_compile");
+				stringBuilder.Replace("multi_compile_local_vertex", "multi_compile");
 #elif !UNITY_2020_3_OR_NEWER
 				// program keyword suffix not supported before Unity 2020.3
 				stringBuilder.Replace("shader_feature_local_fragment", "shader_feature_local");
 				stringBuilder.Replace("shader_feature_local_vertex", "shader_feature_local");
+				stringBuilder.Replace("multi_compile_local_fragment", "multi_compile_local");
 				stringBuilder.Replace("multi_compile_fragment", "multi_compile");
 #endif
+
+				if (!skipSerializationData)
+				{
+					// Add serialized data
+					stringBuilder.AppendLine(config.GetSerializedData());
+
+					// Calculate hash
+					string normalizedLineEndings = stringBuilder.ToString().Replace("\r\n", "\n");
+					var hash = GetHash(normalizedLineEndings);
+					stringBuilder.AppendLine(string.Format(Config.kHashPrefix + hash + Config.kHashSuffix));
+				}
 
 				var sourceCode = stringBuilder.ToString();
 

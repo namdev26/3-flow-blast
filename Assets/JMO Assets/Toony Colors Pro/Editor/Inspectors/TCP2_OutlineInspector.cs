@@ -1,5 +1,5 @@
 ﻿// Toony Colors Pro+Mobile 2
-// (c) 2014-2021 Jean Moreno
+// (c) 2014-2023 Jean Moreno
 
 //#define SHOW_DEFAULT_INSPECTOR
 
@@ -232,7 +232,7 @@ public class TCP2_OutlineInspector : MaterialEditor
 		}
 
 		//GUI
-		switch(property.propertyType)
+		switch(TCP2_MaterialPropertyUtility.GetPropertyType(property))
 		{
 		case ShaderPropertyType.Color:
 			ColorProperty(property, displayName);
@@ -271,7 +271,7 @@ public class TCP2_OutlineInspector : MaterialEditor
 			break;
 
 		default:
-			EditorGUILayout.LabelField("Unknown Material Property Type: " + property.propertyType);
+			EditorGUILayout.LabelField("Unknown Material Property Type: " + TCP2_MaterialPropertyUtility.GetPropertyType(property));
 			break;
 		}
 

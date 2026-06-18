@@ -345,12 +345,16 @@ namespace ToonyColorsPro
 			[Serialization.SerializeAs("imps")] public List<Implementation> implementations;
 			[Serialization.SerializeAs("layers")] public List<string> linkedMaterialLayers = new List<string>();
 			[Serialization.SerializeAs("unlocked")] public List<string> unlockedMaterialLayers = new List<string>();
+			[Serialization.SerializeAs("layer_blend")] public Dictionary<string, MaterialLayer.BlendType> materialLayerBlendings = new Dictionary<string, MaterialLayer.BlendType>();
+			[Serialization.SerializeAs("custom_blend")] public Dictionary<string, string> materialLayercustomBlendings = new Dictionary<string, string>();
 			[Serialization.SerializeAs("clones"), Serialization.ForceSerialization] public Dictionary<string, ShaderProperty> clonedShaderProperties = new Dictionary<string, ShaderProperty>();
+
+			internal const string DefaultCustomBlending = "lerp(a, b, s)";
 
 			public VariableType Type { get; private set; }
 			public ProgramType Program = ProgramType.Undefined;
 			public bool IsUsedInLightingFunction = false;   //TODO same process for IsUsedInVertexFunction for vert/frag shaders and automatic float4 texcoordN packing
-			public List<int> usedImplementationsForCustomCode = new List<int>();
+			readonly List<int> usedImplementationsForCustomCode = new List<int>();
 
 			// Material Layers
 			[Serialization.SerializeAs("isClone")] internal bool isLayerClone = false;
@@ -362,7 +366,7 @@ namespace ToonyColorsPro
 			int passBitmask;    //bitmask that determines in which passes the shader property is used
 			Implementation[] defaultImplementations;
 			public bool expanded;
-			public List<int> implementationsExpandedStates = new List<int>();
+			readonly List<int> implementationsExpandedStates = new List<int>();
 			string helpMessage;
 			string displayName = null;
 			public string DisplayName
@@ -421,6 +425,7 @@ namespace ToonyColorsPro
 				clone.isLayerClone = true;
 				clone.Name = this.Name + "_" + materialLayer.uid;
 				clone.Type = this.Type;
+				clone.passBitmask = this.passBitmask;
 				clone.implementations = new List<Implementation>();
 				clone.SetDefaultImplementations(this.defaultImplementations);
 				clone.implementations.Clear();
@@ -564,6 +569,8 @@ namespace ToonyColorsPro
 				if (clearMaterialLayers)
 				{
 					linkedMaterialLayers.Clear();
+					materialLayerBlendings.Clear();
+					materialLayercustomBlendings.Clear();
 					unlockedMaterialLayers.Clear();
 					clonedShaderProperties.Clear();
 				}
@@ -638,6 +645,11 @@ namespace ToonyColorsPro
 			internal void AddMaterialLayer(string uid)
 			{
 				this.linkedMaterialLayers.Add(uid);
+				if (!materialLayerBlendings.ContainsKey(uid))
+				{
+					this.materialLayerBlendings.Add(uid, MaterialLayer.BlendType.LinearInterpolation);
+					this.materialLayercustomBlendings.Add(uid, DefaultCustomBlending);
+				}
 				UpdateLayersTooltip();
 			}
 
@@ -713,17 +725,31 @@ namespace ToonyColorsPro
 			//Print the variables/properties declaration for this ShaderProperty, if any
 			public string PrintVariableDeclare(bool gpuInstanced, string indent)
 			{
-				string output = PrintVariableDeclare_Internal(gpuInstanced, indent);
-				output += CallMethodWithCloneSuffixForEachLayer((sp) => string.Format("\n{0}", sp.PrintVariableDeclare_Internal(gpuInstanced, indent)));
+				string output = PrintVariableDeclare_Internal(indent, gpuInstanced, false);
+				output += CallMethodWithCloneSuffixForEachLayer((sp) => string.Format("\n{0}", sp.PrintVariableDeclare_Internal(indent, gpuInstanced, false)));
 				return output;
 			}
 			
-			public string PrintVariableDeclare_Internal(bool gpuInstanced, string indent)
+			public List<string> PrintVariablesDeclareDotsInstancing()
 			{
-				var result = "";
-				foreach (var i in implementations)
+				var list = new List<string>();
+				list.Add(PrintVariableDeclare_Internal("", false, true));
+				CallMethodWithCloneSuffixForEachLayer((sp) =>
 				{
-					var str = i.PrintVariableDeclare(indent, gpuInstanced);
+					list.Add(sp.PrintVariableDeclare_Internal("", false, true));
+					return null;
+				});
+				return list;
+			}
+
+			public string PrintVariableDeclare_Internal(string indent, bool gpuInstanced, bool dotsInstanced)
+			{
+				string result = "";
+				foreach (Implementation imp in implementations)
+				{
+					if (dotsInstanced && !imp.IsDotsInstanced) continue;
+
+					string str = imp.PrintVariableDeclare(indent, gpuInstanced);
 					if (!string.IsNullOrEmpty(str))
 					{
 						result += str + "\n";
@@ -777,7 +803,7 @@ namespace ToonyColorsPro
 				return output;
 			}
 			
-			public string PrintVariableSample_Internal(string inputSource, string outputSource, ProgramType program, string arguments, string prefix = null)
+			string PrintVariableSample_Internal(string inputSource, string outputSource, ProgramType program, string arguments, string prefix = null)
 			{
 				return PrintVariableSample(inputSource, outputSource, program, arguments, true, prefix);
 			}
@@ -912,6 +938,14 @@ namespace ToonyColorsPro
 						features.AddRange(GetNeededFeatures(nf, Program));
 					}
 					features.AddRange(imp.NeededFeaturesExtra());
+				}
+
+				if (clonedShaderProperties.Count > 0)
+				{
+					foreach (ShaderProperty clonedShaderProperty in clonedShaderProperties.Values)
+					{
+						features.AddRange(clonedShaderProperty.NeededFeatures());
+					}
 				}
 
 				return features.ToArray();
@@ -1430,7 +1464,7 @@ namespace ToonyColorsPro
 				menu.AddItem(gc_ResetImplementations, false, OnResetImplementation, true);
 				menu.AddItem(gc_ResetImplementationsML, false, OnResetImplementation, null);
 
-				if (ShaderGenerator2.DebugMode)
+				if (ShaderGenerator2.DEBUG_MODE)
 				{
 					menu.AddItem(gc_debugCompareImplementations, false, () =>
 					{
@@ -1780,41 +1814,86 @@ namespace ToonyColorsPro
 					{
 						// Draw Material Layer
 						
-						var ml = ShaderGenerator2.CurrentConfig.materialLayers[matLayerTab];
-						bool layerIsEnabled = linkedMaterialLayers.Contains(ml.uid);
+						MaterialLayer materialLayer = ShaderGenerator2.CurrentConfig.materialLayers[matLayerTab];
+						bool layerIsEnabled = linkedMaterialLayers.Contains(materialLayer.uid);
 						EditorGUI.BeginChangeCheck();
 						GUILayout.Space(EditorGUIUtility.standardVerticalSpacing);
-						bool toggle = GUILayout.Toggle(layerIsEnabled, TCP2_GUI.TempContent(string.Format(" Enable Layer '{0}'", ml.name)));
+						// --- horizontal
+						EditorGUILayout.BeginHorizontal();
+						bool toggle = GUILayout.Toggle(layerIsEnabled, TCP2_GUI.TempContent(string.Format(" Enable Layer '{0}'", materialLayer.name)));
 						if (EditorGUI.EndChangeCheck())
 						{
 							if (toggle)
 							{
-								AddMaterialLayer(ml.uid);
+								AddMaterialLayer(materialLayer.uid);
 							}
 							else
 							{
-								RemoveMaterialLayer(ml.uid);
+								RemoveMaterialLayer(materialLayer.uid);
 							}
+
+							layerIsEnabled = linkedMaterialLayers.Contains(materialLayer.uid);
 						}
 
-						bool layerIsLocked = !unlockedMaterialLayers.Contains(ml.uid);
+						bool layerIsLocked = !unlockedMaterialLayers.Contains(materialLayer.uid);
 						EditorGUI.BeginDisabledGroup(!layerIsEnabled);
+
+						GUILayout.FlexibleSpace();
+
+						if (layerIsEnabled)
+						{
+							// Re-synchronize dictionaries in case we are loading an older shader without blending support
+							if (materialLayerBlendings.Count != linkedMaterialLayers.Count)
+							{
+								materialLayerBlendings.Clear();
+								materialLayercustomBlendings.Clear();
+								foreach (string uid in linkedMaterialLayers)
+								{
+									materialLayerBlendings.Add(uid, MaterialLayer.BlendType.LinearInterpolation);
+									materialLayercustomBlendings.Add(uid, DefaultCustomBlending);
+								}
+							}
+
+							GUILayout.Label(TCP2_GUI.TempContent("Layer Blending"), GUILayout.ExpandWidth(false));
+							materialLayerBlendings[materialLayer.uid] = (MaterialLayer.BlendType)EditorGUILayout.EnumPopup(materialLayerBlendings[materialLayer.uid]);
+							EditorGUILayout.EndHorizontal();
+							// --- end horizontal
+							if (materialLayerBlendings[materialLayer.uid] == MaterialLayer.BlendType.Custom)
+							{
+								EditorGUILayout.HelpBox("Define your custom blending formula here:\na: original property\nb: layer property\ns: layer source value", MessageType.Info);
+								EditorGUILayout.BeginHorizontal();
+								EditorGUI.BeginDisabledGroup(true);
+								GUILayout.Label("a = ", GUILayout.ExpandWidth(false));
+								EditorGUI.EndDisabledGroup();
+								materialLayercustomBlendings[materialLayer.uid] = EditorGUILayout.TextField(materialLayercustomBlendings[materialLayer.uid]);
+								EditorGUILayout.EndHorizontal();
+								TCP2_GUI.SeparatorSimple();
+							}
+						}
+						else
+						{
+							GUILayout.Label(TCP2_GUI.TempContent("Layer Blending"), GUILayout.ExpandWidth(false));
+							EditorGUILayout.EnumPopup(MaterialLayer.BlendType.LinearInterpolation);
+							EditorGUILayout.EndHorizontal();
+							// --- end horizontal
+						}
+
 						EditorGUI.BeginChangeCheck();
 						bool locked = GUILayout.Toggle(layerIsLocked, TCP2_GUI.TempContent(" Same as Base layer"));
 						if (EditorGUI.EndChangeCheck())
 						{
 							if (!locked)
 							{
-								unlockedMaterialLayers.Add(ml.uid);
-								if (!clonedShaderProperties.ContainsKey(ml.uid))
+								unlockedMaterialLayers.Add(materialLayer.uid);
+								if (!clonedShaderProperties.ContainsKey(materialLayer.uid))
 								{
-									var cloneSp = this.CloneForLayer(ml);
-									clonedShaderProperties.Add(ml.uid, cloneSp);
+									var cloneSp = this.CloneForLayer(materialLayer);
+									clonedShaderProperties.Add(materialLayer.uid, cloneSp);
 								}
 							}
 							else
 							{
-								unlockedMaterialLayers.Remove(ml.uid);
+								unlockedMaterialLayers.Remove(materialLayer.uid);
 							}
 						}
 						EditorGUI.EndDisabledGroup();
@@ -1825,7 +1904,7 @@ namespace ToonyColorsPro
 						{
 							EditorGUI.BeginDisabledGroup(disableUi);
 							{
-								clonedShaderProperties[ml.uid].ShowImplementationsGUI();
+								clonedShaderProperties[materialLayer.uid].ShowImplementationsGUI();
 								drawBaseShaderProperty = false;
 							}
 							EditorGUI.EndDisabledGroup();
@@ -2559,6 +2638,10 @@ namespace ToonyColorsPro
 						{
 							imp_mp_texture.TilingOffsetVariableLabel = imp_mp_texture.TilingOffsetVariable;
 						}
+
+#if UNITY_2019_4_OR_NEWER
+						imp_mp_texture.SamplerGroup = GetAssociatedDataInt(associatedData, "sampler_group", 0);
+#endif
 					}
 
 					var imp_mp = imp as Imp_MaterialProperty;
