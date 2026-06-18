@@ -54,7 +54,7 @@ namespace FlowBlast.Data
         {
             return new BoxDefinition
             {
-                Color = color,
+                Color = GetResolvedColor(),
                 VisualProfile = visualProfile,
                 Capacity = Mathf.Max(1, capacity),
                 IsHidden = isHidden,
@@ -69,11 +69,18 @@ namespace FlowBlast.Data
                 return;
             }
 
-            Color = definition.Color;
+            Color = definition.VisualProfile != null
+                ? definition.VisualProfile.BlockColor
+                : definition.Color;
             VisualProfile = definition.VisualProfile;
             Capacity = definition.Capacity;
             IsHidden = definition.IsHidden;
             FrozenClearsRequired = definition.FrozenClearsRequired;
+        }
+
+        private BlockColor GetResolvedColor()
+        {
+            return visualProfile != null ? visualProfile.BlockColor : color;
         }
     }
 }

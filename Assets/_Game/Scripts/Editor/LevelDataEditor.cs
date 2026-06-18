@@ -112,7 +112,6 @@ namespace FlowBlast.Editor
         private void DrawPlacementItem(int index, SerializedProperty placementProperty)
         {
             SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
-            SerializedProperty colorProperty = placementProperty.FindPropertyRelative("color");
             SerializedProperty capacityProperty = placementProperty.FindPropertyRelative("capacity");
             SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
             SerializedProperty isHiddenProperty = placementProperty.FindPropertyRelative("isHidden");
@@ -130,11 +129,17 @@ namespace FlowBlast.Editor
                     }
 
                     GUILayout.FlexibleSpace();
-                    EditorGUILayout.PropertyField(colorProperty, GUIContent.none, GUILayout.Width(90f));
+                    GUILayout.Label(visualProfileProperty.objectReferenceValue != null ? visualProfileProperty.objectReferenceValue.name : "No Profile", EditorStyles.miniLabel);
                 }
 
                 EditorGUILayout.PropertyField(localPositionProperty);
+                EditorGUI.BeginChangeCheck();
                 EditorGUILayout.PropertyField(visualProfileProperty);
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    SyncPlacementColorFromVisualProfile(placementProperty);
+                }
                 EditorGUILayout.PropertyField(capacityProperty);
                 EditorGUILayout.PropertyField(isHiddenProperty);
                 EditorGUILayout.PropertyField(frozenClearsRequiredProperty);
@@ -171,7 +176,6 @@ namespace FlowBlast.Editor
             boxPlacementsProperty.arraySize++;
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(insertIndex);
             placementProperty.FindPropertyRelative("localPosition").vector3Value = GetNextPlacementPosition();
-            placementProperty.FindPropertyRelative("color").enumValueIndex = (int)BlockColor.Green;
             placementProperty.FindPropertyRelative("capacity").intValue = GameConstants.DefaultBoxCapacity;
             placementProperty.FindPropertyRelative("isHidden").boolValue = false;
             placementProperty.FindPropertyRelative("frozenClearsRequired").intValue = 0;
@@ -190,6 +194,24 @@ namespace FlowBlast.Editor
         {
             boxPlacementsProperty.DeleteArrayElementAtIndex(selectedPlacementIndex);
             selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex - 1, -1, boxPlacementsProperty.arraySize - 1);
+        }
+
+        private void SyncPlacementColorFromVisualProfile(SerializedProperty placementProperty)
+        {
+            if (placementProperty == null)
+            {
+                return;
+            }
+
+            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
+            SerializedProperty colorProperty = placementProperty.FindPropertyRelative("color");
+
+            if (visualProfileProperty?.objectReferenceValue is not BoxVisualProfile visualProfile || colorProperty == null)
+            {
+                return;
+            }
+
+            colorProperty.enumValueIndex = (int)visualProfile.BlockColor;
         }
 
         private Vector3 GetNextPlacementPosition()

@@ -1,0 +1,141 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e27c1bac068d204ba5de11fabefb483, type: 3}
+  m_Name: Level_01
+  m_EditorClassIdentifier: Assembly-CSharp::FlowBlast.Data.LevelData
+  levelId: Level_01
+  beltSpeed: 2
+  maxBeltSlots: 2
+  maxBacklogBlocks: 120
+  beltLaneCount: 4
+  autoBuildBlockSequenceFromBoxes: 1
+  boxPlacements:
+  - localPosition: {x: 0, y: 0, z: 0}
+    color: 1
+    visualProfile: {fileID: 0}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1.5, y: 0, z: 0}
+    color: 2
+    visualProfile: {fileID: 11400000, guid: 8fe21c654368e5543a86e4e6a10715f2, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1.5, y: 0, z: 0}
+    color: 2
+    visualProfile: {fileID: 11400000, guid: 8fe21c654368e5543a86e4e6a10715f2, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 3, y: 0, z: 0}
+    color: 2
+    visualProfile: {fileID: 11400000, guid: 8fe21c654368e5543a86e4e6a10715f2, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -3, y: 0, z: 0}
+    color: 2
+    visualProfile: {fileID: 11400000, guid: 8fe21c654368e5543a86e4e6a10715f2, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1.5, y: 0, z: -1.5}
+    color: 2
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: -1.5}
+    color: 2
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1.5, y: 0, z: -1.5}
+    color: 2
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1.5, y: 0, z: 1.5}
+    color: 3
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: 1.5}
+    color: 3
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1.5, y: 0, z: 1.5}
+    color: 3
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -3, y: 0, z: -3}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1.5, y: 0, z: -3}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 3, y: 0, z: -3}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1.5, y: 0, z: -3}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -3, y: 0, z: 3}
+    color: 1
+    visualProfile: {fileID: 11400000, guid: faf6830140464934dbdcd1370425a5d5, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: 3}
+    color: 1
+    visualProfile: {fileID: 11400000, guid: faf6830140464934dbdcd1370425a5d5, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 3, y: 0, z: 3}
+    color: 1
+    visualProfile: {fileID: 11400000, guid: faf6830140464934dbdcd1370425a5d5, type: 2}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  blockSequence: 020000000200000001000000020000000100000001000000
+  boxQueue:
+  - Color: 2
+    VisualProfile: {fileID: 0}
+    Capacity: 80
+    IsHidden: 0
+    FrozenClearsRequired: 0
+  - Color: 1
+    VisualProfile: {fileID: 0}
+    Capacity: 80
+    IsHidden: 0
+    FrozenClearsRequired: 0

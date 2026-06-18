@@ -12,10 +12,13 @@ namespace FlowBlast.Editor
     public sealed class LevelEditorWindow : EditorWindow
     {
         private const string DefaultLevelFolder = "Assets/_Game/Data/Levels";
+        private const string BoxVisualProfileFolder = "Assets/_Game/Data/BoxVisualProfiles";
         private const string DefaultLevelName = "LevelData";
         private const float DefaultCellSpacing = 1.5f;
         private const float GridCellButtonSize = 34f;
         private const float GridColorPreviewSize = 18f;
+        private const float VisualPaletteButtonSize = 26f;
+        private const float VisualPalettePanelWidth = 152f;
         private const int DefaultGridWidth = 5;
         private const int DefaultGridHeight = 5;
 
@@ -28,6 +31,7 @@ namespace FlowBlast.Editor
         private SerializedProperty autoBuildBlockSequenceFromBoxesProperty;
         private SerializedProperty blockSequenceProperty;
         private SerializedProperty beltLaneCountProperty;
+        private Vector2 windowScrollPosition;
         private Vector2 boxListScrollPosition;
         private int selectedPlacementIndex = -1;
         private int gridWidth = DefaultGridWidth;
@@ -36,12 +40,13 @@ namespace FlowBlast.Editor
         private int brushCapacity = GameConstants.DefaultBoxCapacity;
         private bool brushHidden;
         private int brushFrozenClearsRequired;
-        private BlockColor brushColor = BlockColor.Green;
+        private BoxVisualProfile brushVisualProfile;
         private bool eraseMode;
         private bool showSettings = true;
         private bool showSequence = true;
         private bool showGridAuthoring = true;
         private bool showBoxList = true;
+        private List<BoxVisualProfile> cachedVisualProfiles;
 
         public static bool IsOpen => instance != null;
 
@@ -145,19 +150,23 @@ namespace FlowBlast.Editor
             RefreshSerializedDataIfNeeded();
             serializedLevelData.Update();
 
-            DrawSceneBindings();
-            EditorGUILayout.Space(6f);
-            DrawSettingsSection();
-            EditorGUILayout.Space(6f);
-            DrawGridAuthoringSection();
-            EditorGUILayout.Space(6f);
-            DrawBoxListSection();
-            EditorGUILayout.Space(6f);
-            DrawSelectedBoxPanel();
-            EditorGUILayout.Space(6f);
-            DrawSequenceSection();
-            EditorGUILayout.Space(6f);
-            DrawSummarySection();
+            using (EditorGUILayout.ScrollViewScope scrollView = new EditorGUILayout.ScrollViewScope(windowScrollPosition))
+            {
+                windowScrollPosition = scrollView.scrollPosition;
+                DrawSceneBindings();
+                EditorGUILayout.Space(6f);
+                DrawSettingsSection();
+                EditorGUILayout.Space(6f);
+                DrawGridAuthoringSection();
+                EditorGUILayout.Space(6f);
+                DrawBoxListSection();
+                EditorGUILayout.Space(6f);
+                DrawSelectedBoxPanel();
+                EditorGUILayout.Space(6f);
+                DrawSequenceSection();
+                EditorGUILayout.Space(6f);
+                DrawSummarySection();
+            }
 
             serializedLevelData.ApplyModifiedProperties();
         }
@@ -256,7 +265,21 @@ namespace FlowBlast.Editor
             EditorGUILayout.Space(4f);
             DrawBrushSettings();
             EditorGUILayout.Space(6f);
-            DrawGridCanvas();
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    DrawGridCanvas();
+                }
+
+                GUILayout.Space(8f);
+
+                using (new EditorGUILayout.VerticalScope(GUILayout.Width(VisualPalettePanelWidth)))
+                {
+                    DrawBrushVisualPalette();
+                }
+            }
         }
 
         private void DrawGridSettings()
@@ -288,13 +311,7 @@ namespace FlowBlast.Editor
         private void DrawBrushSettings()
         {
             EditorGUILayout.LabelField("Brush", EditorStyles.boldLabel);
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                brushColor = (BlockColor)EditorGUILayout.EnumPopup("Color", brushColor);
-                DrawInlineColorPreview(ResolveBoxColor(brushColor));
-            }
-
+            DrawInlineColorPreview(ResolveBrushPreviewColor());
             brushCapacity = Mathf.Max(1, EditorGUILayout.IntField("Capacity", brushCapacity));
             brushHidden = EditorGUILayout.Toggle("Is Hidden", brushHidden);
             brushFrozenClearsRequired = Mathf.Max(0, EditorGUILayout.IntField("Frozen Clears", brushFrozenClearsRequired));
@@ -392,6 +409,19 @@ namespace FlowBlast.Editor
                 return;
             }
 
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+
+                using (new EditorGUI.DisabledScope(GetPlacementCount() == 0))
+                {
+                    if (GUILayout.Button("Clear All Boxes", GUILayout.Width(120f)))
+                    {
+                        ClearAllPlacements();
+                    }
+                }
+            }
+
             if (GetPlacementCount() == 0)
             {
                 EditorGUILayout.HelpBox("No boxes placed yet. Click grid cells above to place boxes.", MessageType.Info);
@@ -411,11 +441,11 @@ namespace FlowBlast.Editor
 
         private void DrawPlacementRow(int index, SerializedProperty placementProperty)
         {
-            SerializedProperty colorProperty = placementProperty.FindPropertyRelative("color");
+            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
             SerializedProperty capacityProperty = placementProperty.FindPropertyRelative("capacity");
             SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
             bool isSelected = selectedPlacementIndex == index;
-            Color boxColor = ResolveBoxColor((BlockColor)colorProperty.enumValueIndex);
+            Color boxColor = ResolvePlacementPreviewColor(visualProfileProperty);
             Vector3 localPosition = localPositionProperty.vector3Value;
             Vector2Int cell = GetGridCellFromLocalPosition(localPosition);
             GUIStyle rowStyle = new GUIStyle(EditorStyles.helpBox);
@@ -438,8 +468,8 @@ namespace FlowBlast.Editor
                             SelectPlacement(index);
                         }
 
-                        EditorGUILayout.PropertyField(colorProperty, GUIContent.none, GUILayout.Width(96f));
                         GUILayout.Label($"Cap {capacityProperty.intValue}", EditorStyles.miniLabel, GUILayout.Width(54f));
+                        GUILayout.Label(visualProfileProperty.objectReferenceValue != null ? visualProfileProperty.objectReferenceValue.name : "No Profile", EditorStyles.miniLabel);
                     }
 
                     using (new EditorGUILayout.HorizontalScope())
@@ -488,8 +518,8 @@ namespace FlowBlast.Editor
                     previousLocalPosition);
             }
 
-            EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("color"));
-            EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("visualProfile"));
+            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
+            DrawSelectedPlacementVisualPalette(placementProperty, visualProfileProperty);
             EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("capacity"));
             EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("isHidden"));
             EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("frozenClearsRequired"));
@@ -665,7 +695,8 @@ namespace FlowBlast.Editor
             }
 
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(placementIndex);
-            placementProperty.FindPropertyRelative("color").enumValueIndex = (int)brushColor;
+            placementProperty.FindPropertyRelative("visualProfile").objectReferenceValue = brushVisualProfile;
+            SyncPlacementColorFromVisualProfile(placementProperty);
             placementProperty.FindPropertyRelative("capacity").intValue = brushCapacity;
             placementProperty.FindPropertyRelative("isHidden").boolValue = brushHidden;
             placementProperty.FindPropertyRelative("frozenClearsRequired").intValue = brushFrozenClearsRequired;
@@ -730,6 +761,129 @@ namespace FlowBlast.Editor
             DrawCellOutline(previewRect, Color.black);
         }
 
+        private void DrawBrushVisualPalette()
+        {
+            EditorGUILayout.LabelField("Visual Palette", EditorStyles.boldLabel);
+            DrawVisualProfilePalette(
+                brushVisualProfile,
+                profile => brushVisualProfile = profile,
+                false,
+                "Choose brush color");
+        }
+
+        private void DrawSelectedPlacementVisualPalette(SerializedProperty placementProperty, SerializedProperty visualProfileProperty)
+        {
+            if (placementProperty == null || visualProfileProperty == null)
+            {
+                return;
+            }
+
+            EditorGUILayout.LabelField("Visual Profile", EditorStyles.boldLabel);
+            DrawVisualProfilePalette(
+                visualProfileProperty.objectReferenceValue as BoxVisualProfile,
+                profile =>
+                {
+                    visualProfileProperty.objectReferenceValue = profile;
+                    SyncPlacementColorFromVisualProfile(placementProperty);
+                },
+                true,
+                "Choose box color");
+        }
+
+        private void DrawVisualProfilePalette(
+            BoxVisualProfile selectedProfile,
+            System.Action<BoxVisualProfile> onSelected,
+            bool allowNone,
+            string tooltip)
+        {
+            List<BoxVisualProfile> visualProfiles = GetVisualProfiles();
+            int buttonCount = allowNone ? visualProfiles.Count + 1 : visualProfiles.Count;
+
+            if (buttonCount == 0)
+            {
+                EditorGUILayout.HelpBox("No BoxVisualProfile assets found.", MessageType.Warning);
+                return;
+            }
+
+            int columns = 4;
+            int index = 0;
+
+            while (index < buttonCount)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    for (int column = 0; column < columns; column++)
+                    {
+                        if (index >= buttonCount)
+                        {
+                            GUILayout.Space(VisualPaletteButtonSize + 4f);
+                            continue;
+                        }
+
+                        if (allowNone && index == 0)
+                        {
+                            DrawVisualProfileButton(selectedProfile == null, Color.gray, "None", () => onSelected?.Invoke(null), tooltip);
+                            index++;
+                            continue;
+                        }
+
+                        int profileIndex = allowNone ? index - 1 : index;
+                        BoxVisualProfile profile = visualProfiles[profileIndex];
+                        bool isSelected = selectedProfile == profile;
+                        DrawVisualProfileButton(isSelected, profile.TintColor, profile.name, () => onSelected?.Invoke(profile), tooltip);
+                        index++;
+                    }
+                }
+            }
+        }
+
+        private void DrawVisualProfileButton(bool isSelected, Color color, string label, System.Action onClick, string tooltip)
+        {
+            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
+            {
+                margin = new RectOffset(2, 2, 2, 2),
+                padding = new RectOffset(0, 0, 0, 0)
+            };
+            Rect buttonRect = GUILayoutUtility.GetRect(
+                VisualPaletteButtonSize,
+                VisualPaletteButtonSize,
+                GUILayout.Width(VisualPaletteButtonSize),
+                GUILayout.Height(VisualPaletteButtonSize));
+
+            if (GUI.Button(buttonRect, new GUIContent(string.Empty, $"{label}\n{tooltip}"), buttonStyle))
+            {
+                onClick?.Invoke();
+            }
+
+            EditorGUI.DrawRect(new Rect(buttonRect.x + 3f, buttonRect.y + 3f, buttonRect.width - 6f, buttonRect.height - 6f), color);
+            DrawCellOutline(buttonRect, isSelected ? Color.white : Color.black);
+        }
+
+        private List<BoxVisualProfile> GetVisualProfiles()
+        {
+            if (cachedVisualProfiles != null && cachedVisualProfiles.Count > 0)
+            {
+                return cachedVisualProfiles;
+            }
+
+            string[] profileGuids = AssetDatabase.FindAssets("t:ScriptableObject", new[] { BoxVisualProfileFolder });
+            cachedVisualProfiles = new List<BoxVisualProfile>(profileGuids.Length);
+
+            for (int i = 0; i < profileGuids.Length; i++)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(profileGuids[i]);
+                BoxVisualProfile profile = AssetDatabase.LoadAssetAtPath<BoxVisualProfile>(assetPath);
+
+                if (profile != null)
+                {
+                    cachedVisualProfiles.Add(profile);
+                }
+            }
+
+            cachedVisualProfiles.Sort((left, right) => string.CompareOrdinal(left.name, right.name));
+            return cachedVisualProfiles;
+        }
+
         private void DrawCellOutline(Rect rect, Color outlineColor)
         {
             EditorGUI.DrawRect(new Rect(rect.x, rect.y, rect.width, 1f), outlineColor);
@@ -765,6 +919,22 @@ namespace FlowBlast.Editor
             serializedLevelData.Update();
             RemovePlacementAtIndex(selectedPlacementIndex);
             selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex - 1, -1, boxPlacementsProperty.arraySize - 1);
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+            SceneView.RepaintAll();
+        }
+
+        private void ClearAllPlacements()
+        {
+            if (GetPlacementCount() == 0)
+            {
+                return;
+            }
+
+            serializedLevelData.Update();
+            boxPlacementsProperty.ClearArray();
+            selectedPlacementIndex = -1;
             serializedLevelData.ApplyModifiedProperties();
             EditorUtility.SetDirty(levelData);
             Repaint();
@@ -821,27 +991,32 @@ namespace FlowBlast.Editor
             }
 
             serializedLevelData.Update();
-            HashSet<Vector3Int> occupiedCells = new HashSet<Vector3Int>();
-            bool hasRemovedPlacement = false;
+            HashSet<Vector2Int> occupiedCells = new HashSet<Vector2Int>();
+            bool hasChanged = false;
 
             for (int i = boxPlacementsProperty.arraySize - 1; i >= 0; i--)
             {
                 SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(i);
-                Vector3 localPosition = placementProperty.FindPropertyRelative("localPosition").vector3Value;
-                Vector3 snappedLocalPosition = SnapLocalPosition(localPosition);
-                placementProperty.FindPropertyRelative("localPosition").vector3Value = snappedLocalPosition;
-                Vector3Int cellKey = GetCellKey(snappedLocalPosition);
+                SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
+                Vector2Int cell = GetRawGridCellFromLocalPosition(localPositionProperty.vector3Value);
+                Vector3 normalizedLocalPosition = GetLocalPositionFromGridCell(cell.x, cell.y);
 
-                if (occupiedCells.Add(cellKey))
+                if ((localPositionProperty.vector3Value - normalizedLocalPosition).sqrMagnitude > 0.0001f)
+                {
+                    localPositionProperty.vector3Value = normalizedLocalPosition;
+                    hasChanged = true;
+                }
+
+                if (occupiedCells.Add(cell))
                 {
                     continue;
                 }
 
                 boxPlacementsProperty.DeleteArrayElementAtIndex(i);
-                hasRemovedPlacement = true;
+                hasChanged = true;
             }
 
-            if (!hasRemovedPlacement)
+            if (!hasChanged)
             {
                 serializedLevelData.ApplyModifiedPropertiesWithoutUndo();
                 return;
@@ -863,6 +1038,8 @@ namespace FlowBlast.Editor
             {
                 RefreshSerializedData();
             }
+
+            CleanupDuplicatePlacements();
         }
 
         private void DrawProperty(string propertyName)
@@ -1018,6 +1195,12 @@ namespace FlowBlast.Editor
             EditorUtility.SetDirty(gameplayInstaller);
         }
 
+        private void OnProjectChange()
+        {
+            cachedVisualProfiles = null;
+            Repaint();
+        }
+
         private Color ResolvePlacementColor(int placementIndex)
         {
             if (placementIndex < 0 || placementIndex >= boxPlacementsProperty.arraySize)
@@ -1026,8 +1209,46 @@ namespace FlowBlast.Editor
             }
 
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(placementIndex);
-            BlockColor blockColor = (BlockColor)placementProperty.FindPropertyRelative("color").enumValueIndex;
-            return ResolveBoxColor(blockColor);
+            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
+            return ResolvePlacementPreviewColor(visualProfileProperty);
+        }
+
+        private Color ResolvePlacementPreviewColor(SerializedProperty visualProfileProperty)
+        {
+            if (visualProfileProperty?.objectReferenceValue is BoxVisualProfile visualProfile)
+            {
+                return visualProfile.TintColor;
+            }
+
+            return Color.gray;
+        }
+
+        private Color ResolveBrushPreviewColor()
+        {
+            if (brushVisualProfile != null)
+            {
+                return brushVisualProfile.TintColor;
+            }
+
+            return Color.gray;
+        }
+
+        private void SyncPlacementColorFromVisualProfile(SerializedProperty placementProperty)
+        {
+            if (placementProperty == null)
+            {
+                return;
+            }
+
+            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
+            SerializedProperty colorProperty = placementProperty.FindPropertyRelative("color");
+
+            if (visualProfileProperty?.objectReferenceValue is not BoxVisualProfile visualProfile || colorProperty == null)
+            {
+                return;
+            }
+
+            colorProperty.enumValueIndex = (int)visualProfile.BlockColor;
         }
 
         private Color ResolveBoxColor(BlockColor blockColor)
@@ -1104,13 +1325,19 @@ namespace FlowBlast.Editor
 
         private Vector2Int GetGridCellFromLocalPosition(Vector3 localPosition)
         {
+            Vector2Int rawCell = GetRawGridCellFromLocalPosition(localPosition);
+            return new Vector2Int(
+                Mathf.Clamp(rawCell.x, 0, Mathf.Max(0, gridWidth - 1)),
+                Mathf.Clamp(rawCell.y, 0, Mathf.Max(0, gridHeight - 1)));
+        }
+
+        private Vector2Int GetRawGridCellFromLocalPosition(Vector3 localPosition)
+        {
             float offsetX = (gridWidth - 1) * gridCellSpacing * 0.5f;
             float offsetZ = (gridHeight - 1) * gridCellSpacing * 0.5f;
             int column = Mathf.RoundToInt((localPosition.x + offsetX) / gridCellSpacing);
             int row = Mathf.RoundToInt((offsetZ - localPosition.z) / gridCellSpacing);
-            return new Vector2Int(
-                Mathf.Clamp(column, 0, Mathf.Max(0, gridWidth - 1)),
-                Mathf.Clamp(row, 0, Mathf.Max(0, gridHeight - 1)));
+            return new Vector2Int(column, row);
         }
 
         private void SyncGridSizeFromData()
@@ -1122,19 +1349,23 @@ namespace FlowBlast.Editor
                 return;
             }
 
+            int minColumn = 0;
             int maxColumn = 0;
+            int minRow = 0;
             int maxRow = 0;
 
             for (int i = 0; i < boxPlacementsProperty.arraySize; i++)
             {
                 SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(i);
-                Vector2Int cell = GetGridCellFromLocalPosition(placementProperty.FindPropertyRelative("localPosition").vector3Value);
+                Vector2Int cell = GetRawGridCellFromLocalPosition(placementProperty.FindPropertyRelative("localPosition").vector3Value);
+                minColumn = Mathf.Min(minColumn, cell.x);
                 maxColumn = Mathf.Max(maxColumn, cell.x);
+                minRow = Mathf.Min(minRow, cell.y);
                 maxRow = Mathf.Max(maxRow, cell.y);
             }
 
-            gridWidth = Mathf.Max(DefaultGridWidth, maxColumn + 1);
-            gridHeight = Mathf.Max(DefaultGridHeight, maxRow + 1);
+            gridWidth = Mathf.Max(DefaultGridWidth, maxColumn - minColumn + 1);
+            gridHeight = Mathf.Max(DefaultGridHeight, maxRow - minRow + 1);
         }
 
         private static Vector3 LocalToWorld(Transform boardRoot, Vector3 localPosition)
