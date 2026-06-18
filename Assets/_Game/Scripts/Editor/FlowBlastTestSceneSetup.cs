@@ -77,21 +77,8 @@ namespace FlowBlast.Editor
             beltRoot.transform.SetParent(root.transform, false);
             BeltPath beltPath = beltRoot.AddComponent<BeltPath>();
 
-            Transform[] waypoints = CreateBeltWaypoints(beltRoot.transform);
-            SerializedObject beltSerialized = new SerializedObject(beltPath);
-            SerializedProperty waypointProperty = beltSerialized.FindProperty("waypoints");
-            waypointProperty.arraySize = waypoints.Length;
-
-            for (int i = 0; i < waypoints.Length; i++)
-            {
-                waypointProperty.GetArrayElementAtIndex(i).objectReferenceValue = waypoints[i];
-            }
-
-            beltSerialized.ApplyModifiedPropertiesWithoutUndo();
-
             Transform blockPoolParent = CreateChild(root.transform, "BlockPoolParent");
             Transform boxQueueParent = CreateChild(root.transform, "BoxQueueParent");
-            boxQueueParent.localPosition = new Vector3(-2f, 0f, -3f);
             Transform boxBeltParent = CreateChild(root.transform, "BoxBeltParent");
 
             SerializedObject installerSerialized = new SerializedObject(installer);
@@ -109,31 +96,6 @@ namespace FlowBlast.Editor
             installerSerialized.ApplyModifiedPropertiesWithoutUndo();
 
             return installer;
-        }
-
-        private static Transform[] CreateBeltWaypoints(Transform beltRoot)
-        {
-            Vector3[] positions =
-            {
-                new Vector3(-1.6f, 0f, -4f),
-                new Vector3(-1.6f, 0f, 0f),
-                new Vector3(-1.6f, 0f, 4f),
-                new Vector3(1.6f, 0f, 4f),
-                new Vector3(1.6f, 0f, 0f),
-                new Vector3(1.6f, 0f, -4f)
-            };
-
-            Transform[] waypoints = new Transform[positions.Length];
-
-            for (int i = 0; i < positions.Length; i++)
-            {
-                GameObject waypointObject = new GameObject($"Waypoint_{i}");
-                waypointObject.transform.SetParent(beltRoot, false);
-                waypointObject.transform.localPosition = positions[i];
-                waypoints[i] = waypointObject.transform;
-            }
-
-            return waypoints;
         }
 
         private static BlockView CreateOrLoadBlockPrefab(BlockColorPalette palette)
