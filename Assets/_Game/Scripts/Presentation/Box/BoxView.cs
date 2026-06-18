@@ -213,6 +213,13 @@ namespace FlowBlast.Presentation.Box
 
         public void HideCompleted()
         {
+            if (flyCoroutine != null)
+            {
+                StopCoroutine(flyCoroutine);
+                flyCoroutine = null;
+            }
+
+            isFlyingToConveyor = false;
             isActiveOnMainBelt = false;
             isActiveOnBoxConveyor = false;
             conveyorSlotIndex = -1;

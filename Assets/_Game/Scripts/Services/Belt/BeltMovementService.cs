@@ -1,4 +1,4 @@
-using FlowBlast.Core.Constants;
+using FlowBlast.Core.Utilities;
 using UnityEngine;
 
 namespace FlowBlast.Services.Belt
@@ -45,17 +45,10 @@ namespace FlowBlast.Services.Belt
 
         public bool IsNearCollectionPoint(float beltDistance)
         {
-            float normalized = beltPath.NormalizeDistance(beltDistance);
-            float collectionNormalized = 0.5f;
-            float delta = Mathf.Abs(normalized - collectionNormalized);
-
-            if (delta > 0.5f)
-            {
-                delta = 1f - delta;
-            }
-
-            float threshold = GameConstants.CollectionDistanceThreshold / beltPath.TotalLength;
-            return delta <= threshold;
+            return BeltCollectionUtility.IsNearCollectionPoint(
+                beltDistance,
+                beltPath.TotalLength,
+                beltPath.NormalizeDistance(beltDistance));
         }
     }
 }

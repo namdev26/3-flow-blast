@@ -7,7 +7,7 @@ namespace FlowBlast.Patterns.Factory
 {
     public interface IBlockFactory
     {
-        BlockView CreateView(BlockModel model);
+        bool TryCreateView(BlockModel model, out BlockView view);
         void ReleaseView(BlockView view);
     }
 }

@@ -2,8 +2,10 @@ namespace FlowBlast.Patterns.Pool
 {
     public interface IObjectPool<T>
     {
-        T Get();
+        bool TryGet(out T item);
         void Release(T item);
+        void Consume(T item);
         void Prewarm(int count);
+        void RecycleAll();
     }
 }

@@ -45,6 +45,7 @@ namespace FlowBlast.Patterns.Command
             }
 
             box.MarkOnBelt();
+            box.MarkOnBoxConveyor();
             box.RevealColor();
             eventBus.Publish(new BoxSentToConveyorEvent(box.Id, box.Color, slotIndex));
             return true;

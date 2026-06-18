@@ -13,6 +13,11 @@ namespace FlowBlast.Patterns.State
 
         public bool TryCollect(BoxStateContext context, BlockColor blockColor)
         {
+            if (context.Box.IsFull())
+            {
+                return false;
+            }
+
             return context.Box.Color == blockColor;
         }
     }

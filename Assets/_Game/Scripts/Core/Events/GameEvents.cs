@@ -5,13 +5,20 @@ namespace FlowBlast.Core.Events
     public readonly struct BlockCollectedEvent
     {
         public int BoxId { get; }
+        public int BlockId { get; }
         public BlockColor Color { get; }
         public int FilledAmount { get; }
         public int Capacity { get; }
 
-        public BlockCollectedEvent(int boxId, BlockColor color, int filledAmount, int capacity)
+        public BlockCollectedEvent(
+            int boxId,
+            int blockId,
+            BlockColor color,
+            int filledAmount,
+            int capacity)
         {
             BoxId = boxId;
+            BlockId = blockId;
             Color = color;
             FilledAmount = filledAmount;
             Capacity = capacity;

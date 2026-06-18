@@ -88,5 +88,15 @@ namespace FlowBlast.Services.Belt
                 return count;
             }
         }
+
+        public BoxModel GetBoxAtSlot(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= maxSlots)
+            {
+                return null;
+            }
+
+            return slots[slotIndex];
+        }
     }
 }

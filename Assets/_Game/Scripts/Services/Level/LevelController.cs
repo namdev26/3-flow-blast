@@ -100,7 +100,6 @@ namespace FlowBlast.Services.Level
                 return;
             }
 
-            blockSpawnService.Tick(deltaTime);
             blockSpawnService.TickCollection();
             EvaluateEndConditions();
         }

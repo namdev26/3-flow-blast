@@ -1,4 +1,3 @@
-using FlowBlast.Core.Enums;
 using FlowBlast.Services.Block;
 using FlowBlast.Services.Box;
 using FlowBlast.Services.Belt;
@@ -10,15 +9,18 @@ namespace FlowBlast.Services.Level
         private readonly BoxQueueService boxQueueService;
         private readonly BlockSpawnService blockSpawnService;
         private readonly BeltSlotService beltSlotService;
+        private readonly BoxConveyorSlotService boxConveyorSlotService;
 
         public WinConditionEvaluator(
             BoxQueueService boxQueueService,
             BlockSpawnService blockSpawnService,
-            BeltSlotService beltSlotService)
+            BeltSlotService beltSlotService,
+            BoxConveyorSlotService boxConveyorSlotService)
         {
             this.boxQueueService = boxQueueService;
             this.blockSpawnService = blockSpawnService;
             this.beltSlotService = beltSlotService;
+            this.boxConveyorSlotService = boxConveyorSlotService;
         }
 
         public bool IsWin(int completedBoxCount, int requiredBoxCount)
@@ -34,6 +36,11 @@ namespace FlowBlast.Services.Level
             }
 
             if (beltSlotService.GetActiveBoxes().Count > 0)
+            {
+                return false;
+            }
+
+            if (boxConveyorSlotService.ActiveCount > 0)
             {
                 return false;
             }

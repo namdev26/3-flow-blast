@@ -47,6 +47,11 @@ namespace FlowBlast.Presentation
             viewsByBoxId[view.Model.Id] = view;
         }
 
+        public bool TryGetView(int boxId, out BoxView view)
+        {
+            return viewsByBoxId.TryGetValue(boxId, out view);
+        }
+
         private void OnDestroy()
         {
             if (eventBus == null)
@@ -100,6 +105,7 @@ namespace FlowBlast.Presentation
 
             float slotDistance = boxConveyorMovementService.GetSlotDistance(slotIndex);
             view.BoardOnBoxConveyor(slotIndex, slotDistance);
+            view.Model?.MarkReadyForConveyorCollection();
             boxConveyorFollowerRegistry.Register(view);
         }
 

@@ -246,8 +246,13 @@ namespace FlowBlast.Bootstrap
             FrozenUnlockStrategy frozenUnlockStrategy = new FrozenUnlockStrategy(eventBus);
             BoxCollectionService boxCollectionService = new BoxCollectionService(
                 beltSlotService,
+                boxConveyorSlotService,
                 beltMovementService,
+                boxConveyorMovementService,
                 eventBus);
+
+            BlockCollectPresentationService blockCollectPresentationService =
+                new BlockCollectPresentationService(presentationCoordinator);
 
             BoxBlastService boxBlastService = new BoxBlastService(
                 beltSlotService,
@@ -261,8 +266,8 @@ namespace FlowBlast.Bootstrap
                 beltPath,
                 followerRegistry,
                 boxCollectionService,
-                boxBlastService,
-                beltSlotService);
+                blockCollectPresentationService,
+                boxBlastService);
             blockSpawnService.ConfigureBlockSpacing(BlockBeltLayout.CalculateSpacing(blockPrefab));
             blockSpawnService.ConfigureBeltLanes(
                 levelData != null ? levelData.BeltLaneCount : GameConstants.BeltLaneCount);
@@ -270,7 +275,8 @@ namespace FlowBlast.Bootstrap
             WinConditionEvaluator winEvaluator = new WinConditionEvaluator(
                 boxQueueService,
                 blockSpawnService,
-                beltSlotService);
+                beltSlotService,
+                boxConveyorSlotService);
             LoseConditionEvaluator loseEvaluator = new LoseConditionEvaluator(blockSpawnService, maxBacklog);
             LevelRepository levelRepository = new LevelRepository(levelData);
 

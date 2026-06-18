@@ -26,17 +26,31 @@ namespace FlowBlast.Patterns.Factory
             return new BlockModel(nextId, color);
         }
 
-        public BlockView CreateView(BlockModel model)
+        public bool TryCreateView(BlockModel model, out BlockView view)
         {
-            BlockView view = pool.Get();
+            if (!pool.TryGet(out view))
+            {
+                return false;
+            }
+
             view.Configure(beltPath);
             view.Bind(model, colorPalette);
-            return view;
+            return true;
         }
 
         public void ReleaseView(BlockView view)
         {
             pool.Release(view);
+        }
+
+        public void ConsumeView(BlockView view)
+        {
+            pool.Consume(view);
+        }
+
+        public void RecyclePool()
+        {
+            pool.RecycleAll();
         }
     }
 }

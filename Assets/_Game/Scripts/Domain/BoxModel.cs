@@ -16,6 +16,8 @@ namespace FlowBlast.Domain
         public bool IsHidden { get; }
         public bool IsFrozen => remainingFrozenClears > 0;
         public bool IsRevealed { get; private set; }
+        public bool IsOnBoxConveyor { get; private set; }
+        public bool IsReadyForConveyorCollection { get; private set; }
         public BoxStateId CurrentState => stateMachine.CurrentStateId;
 
         private int remainingFrozenClears;
@@ -59,6 +61,22 @@ namespace FlowBlast.Domain
             stateMachine.TransitionTo(BoxStateId.OnBelt);
         }
 
+        public void MarkOnBoxConveyor()
+        {
+            IsOnBoxConveyor = true;
+            IsReadyForConveyorCollection = false;
+        }
+
+        public void MarkReadyForConveyorCollection()
+        {
+            if (!IsOnBoxConveyor)
+            {
+                return;
+            }
+
+            IsReadyForConveyorCollection = true;
+        }
+
         public void MarkFilling()
         {
             stateMachine.TransitionTo(BoxStateId.Filling);
@@ -71,6 +89,8 @@ namespace FlowBlast.Domain
 
         public void MarkCompleted()
         {
+            IsOnBoxConveyor = false;
+            IsReadyForConveyorCollection = false;
             stateMachine.TransitionTo(BoxStateId.Completed);
         }
 

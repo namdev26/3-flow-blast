@@ -20,10 +20,10 @@ MonoBehaviour:
   blockSequence: 020000000200000001000000020000000100000001000000
   boxQueue:
   - Color: 2
-    Capacity: 8
+    Capacity: 80
     IsHidden: 0
     FrozenClearsRequired: 0
   - Color: 1
-    Capacity: 8
+    Capacity: 80
     IsHidden: 0
     FrozenClearsRequired: 0

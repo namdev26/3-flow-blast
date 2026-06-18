@@ -25,16 +25,17 @@ namespace FlowBlast.Patterns.Pool
             }
         }
 
-        public BlockView Get()
+        public bool TryGet(out BlockView item)
         {
-            if (availableItems.Count > 0)
+            if (availableItems.Count == 0)
             {
-                BlockView item = availableItems.Dequeue();
-                item.gameObject.SetActive(true);
-                return item;
+                item = null;
+                return false;
             }
 
-            return CreateInstance();
+            item = availableItems.Dequeue();
+            item.gameObject.SetActive(true);
+            return true;
         }
 
         public void Release(BlockView item)
@@ -48,6 +49,32 @@ namespace FlowBlast.Patterns.Pool
             item.transform.SetParent(parent, false);
             item.gameObject.SetActive(false);
             availableItems.Enqueue(item);
+        }
+
+        public void Consume(BlockView item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            item.ResetView();
+            item.transform.SetParent(parent, false);
+            item.gameObject.SetActive(false);
+        }
+
+        public void RecycleAll()
+        {
+            availableItems.Clear();
+            BlockView[] instances = parent.GetComponentsInChildren<BlockView>(true);
+
+            for (int i = 0; i < instances.Length; i++)
+            {
+                instances[i].ResetView();
+                instances[i].transform.SetParent(parent, false);
+                instances[i].gameObject.SetActive(false);
+                availableItems.Enqueue(instances[i]);
+            }
         }
 
         private BlockView CreateInstance()

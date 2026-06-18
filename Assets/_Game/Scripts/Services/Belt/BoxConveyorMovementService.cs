@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using FlowBlast.Core.Constants;
+using FlowBlast.Core.Utilities;
 using FlowBlast.Presentation.Box;
 using UnityEngine;
 
@@ -45,6 +46,19 @@ namespace FlowBlast.Services.Belt
                 boxConveyorPath.TotalLength,
                 maxSlots,
                 conveyorPhase);
+        }
+
+        public bool IsNearCollectionPoint(float beltDistance)
+        {
+            if (boxConveyorPath == null)
+            {
+                return false;
+            }
+
+            return BeltCollectionUtility.IsNearCollectionPoint(
+                beltDistance,
+                boxConveyorPath.TotalLength,
+                boxConveyorPath.NormalizeDistance(beltDistance));
         }
 
         public void Tick(float deltaTime)

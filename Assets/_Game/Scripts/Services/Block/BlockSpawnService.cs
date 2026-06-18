@@ -4,6 +4,7 @@ using FlowBlast.Core.Enums;
 using FlowBlast.Data;
 using FlowBlast.Domain;
 using FlowBlast.Patterns.Factory;
+using FlowBlast.Presentation;
 using FlowBlast.Presentation.Block;
 using FlowBlast.Services.Belt;
 using FlowBlast.Services.Box;
@@ -17,13 +18,14 @@ namespace FlowBlast.Services.Block
         private readonly IBeltPath beltPath;
         private readonly BeltFollowerRegistry followerRegistry;
         private readonly BoxCollectionService boxCollectionService;
+        private readonly BlockCollectPresentationService blockCollectPresentationService;
         private readonly BoxBlastService boxBlastService;
-        private readonly BeltSlotService beltSlotService;
 
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
         private readonly List<BlockColor> blockSequence = new List<BlockColor>();
 
         private int sequenceIndex;
+        private int blocksInFlightCount;
         private int laneCount = GameConstants.BeltLaneCount;
         private float rowSpacing = GameConstants.FallbackBlockSpacing;
         private float laneSpacing = GameConstants.FallbackBlockSpacing;
@@ -33,15 +35,15 @@ namespace FlowBlast.Services.Block
             IBeltPath beltPath,
             BeltFollowerRegistry followerRegistry,
             BoxCollectionService boxCollectionService,
-            BoxBlastService boxBlastService,
-            BeltSlotService beltSlotService)
+            BlockCollectPresentationService blockCollectPresentationService,
+            BoxBlastService boxBlastService)
         {
             this.blockFactory = blockFactory;
             this.beltPath = beltPath;
             this.followerRegistry = followerRegistry;
             this.boxCollectionService = boxCollectionService;
+            this.blockCollectPresentationService = blockCollectPresentationService;
             this.boxBlastService = boxBlastService;
-            this.beltSlotService = beltSlotService;
         }
 
         public void ConfigureBlockSpacing(float spacing)
@@ -75,6 +77,7 @@ namespace FlowBlast.Services.Block
 
         public void LoadSequence(IReadOnlyList<BlockColor> sequence)
         {
+            blockFactory.RecyclePool();
             ClearActiveBlocks();
             blockSequence.Clear();
             sequenceIndex = 0;
@@ -97,21 +100,6 @@ namespace FlowBlast.Services.Block
             PrewarmBelt();
         }
 
-        public void Tick(float deltaTime)
-        {
-            if (!IsSpawnPointClear())
-            {
-                return;
-            }
-
-            if (!TryGetNextColor(out BlockColor nextColor))
-            {
-                return;
-            }
-
-            SpawnRow(nextColor, 0f);
-        }
-
         public void TickCollection()
         {
             for (int i = activeBlocks.Count - 1; i >= 0; i--)
@@ -123,19 +111,39 @@ namespace FlowBlast.Services.Block
                     continue;
                 }
 
-                if (!boxCollectionService.TryCollect(entry.Model, entry.View.BeltDistance))
+                if (!boxCollectionService.TryCollect(entry.Model, entry.View.BeltDistance, out BoxModel collectedBox))
                 {
                     continue;
                 }
 
-                ReleaseBlockAt(i);
-                TryBlastFullBoxes();
+                followerRegistry.Unregister(entry.View);
+                activeBlocks.RemoveAt(i);
+                blocksInFlightCount++;
+
+                blockCollectPresentationService.PlayCollect(
+                    entry.View,
+                    collectedBox.Id,
+                    () =>
+                    {
+                        blocksInFlightCount--;
+                        blockFactory.ConsumeView(entry.View);
+                    });
+
+                if (collectedBox.IsFull())
+                {
+                    boxBlastService.TryBlast(collectedBox);
+                }
             }
         }
 
         public bool HasActiveBlocks()
         {
-            return activeBlocks.Count > 0;
+            return activeBlocks.Count > 0 || blocksInFlightCount > 0;
+        }
+
+        public bool HasRemainingSequence()
+        {
+            return sequenceIndex < blockSequence.Count;
         }
 
         private void PrewarmBelt()
@@ -147,52 +155,42 @@ namespace FlowBlast.Services.Block
 
             float rowDistance = 0f;
 
-            while (rowDistance < beltPath.TotalLength)
+            while (rowDistance < beltPath.TotalLength && HasRemainingSequence())
             {
-                if (!TryGetNextColor(out BlockColor color))
+                if (!TryConsumeNextColor(out BlockColor color))
                 {
                     break;
                 }
 
-                SpawnRow(color, rowDistance);
+                if (!SpawnRow(color, rowDistance))
+                {
+                    break;
+                }
+
                 rowDistance += rowSpacing;
             }
         }
 
-        private bool IsSpawnPointClear()
+        private bool SpawnRow(BlockColor color, float rowDistance)
         {
-            if (beltPath.TotalLength <= Mathf.Epsilon)
-            {
-                return false;
-            }
+            bool spawnedAny = false;
 
-            float normalizedRowSpacing = rowSpacing / beltPath.TotalLength;
-
-            for (int i = 0; i < activeBlocks.Count; i++)
-            {
-                float normalized = beltPath.NormalizeDistance(activeBlocks[i].View.BeltDistance);
-                bool isNearSpawn = normalized < normalizedRowSpacing
-                    || normalized > 1f - normalizedRowSpacing;
-
-                if (isNearSpawn)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private void SpawnRow(BlockColor color, float rowDistance)
-        {
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
                 BlockModel model = blockFactory.CreateModel(color);
-                BlockView view = blockFactory.CreateView(model);
+
+                if (!blockFactory.TryCreateView(model, out BlockView view))
+                {
+                    break;
+                }
+
                 view.ActivateOnBelt(rowDistance, laneIndex, laneCount, laneSpacing);
                 followerRegistry.Register(view);
                 activeBlocks.Add(new BlockRuntimeEntry(model, view));
+                spawnedAny = true;
             }
+
+            return spawnedAny;
         }
 
         private void ReleaseBlockAt(int index)
@@ -205,38 +203,25 @@ namespace FlowBlast.Services.Block
 
         private void ClearActiveBlocks()
         {
+            blocksInFlightCount = 0;
+
             for (int i = activeBlocks.Count - 1; i >= 0; i--)
             {
                 ReleaseBlockAt(i);
             }
         }
 
-        private void TryBlastFullBoxes()
-        {
-            List<BoxModel> activeBoxes = new List<BoxModel>(beltSlotService.GetActiveBoxes());
-
-            for (int i = 0; i < activeBoxes.Count; i++)
-            {
-                boxBlastService.TryBlast(activeBoxes[i]);
-            }
-        }
-
-        private bool TryGetNextColor(out BlockColor color)
+        private bool TryConsumeNextColor(out BlockColor color)
         {
             color = BlockColor.None;
 
-            if (blockSequence.Count == 0)
+            if (sequenceIndex >= blockSequence.Count)
             {
                 return false;
             }
 
             color = blockSequence[sequenceIndex];
             sequenceIndex++;
-
-            if (sequenceIndex >= blockSequence.Count)
-            {
-                sequenceIndex = 0;
-            }
 
             return color != BlockColor.None;
         }
