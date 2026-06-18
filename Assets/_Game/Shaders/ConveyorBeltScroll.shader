@@ -55,19 +55,28 @@ Shader "FlowBlast/ConveyorBeltScroll"
                 float3 positionOS : TEXCOORD0;
                 float3 normalWS : TEXCOORD1;
                 float fogFactor : TEXCOORD2;
+                float3 normalOS : TEXCOORD3;
             };
 
-            float GetStadiumLoop01(float2 xz, float halfLen, float radius)
+            float GetBeltLoop01(float2 xz, float3 normalOS, float halfLen, float radius)
             {
                 const float pi = 3.14159265359;
+                const float halfCapArc = pi * 0.5 * radius;
                 const float capArc = pi * radius;
                 const float straightSpan = halfLen * 2.0;
                 const float totalLength = straightSpan * 2.0 + capArc * 2.0;
                 float coord = 0.0;
 
-                if (xz.y >= 0.0 && abs(xz.x) <= halfLen)
+                if (abs(xz.x) <= halfLen)
                 {
-                    coord = xz.x + halfLen;
+                    if (xz.y >= 0.0)
+                    {
+                        coord = halfCapArc + (xz.x + halfLen);
+                    }
+                    else
+                    {
+                        coord = straightSpan + capArc + (halfLen - xz.x);
+                    }
                 }
                 else if (xz.x > halfLen)
                 {
@@ -75,18 +84,21 @@ Shader "FlowBlast/ConveyorBeltScroll"
                     float angle = atan2(capOffset.y, capOffset.x);
                     coord = straightSpan + (pi * 0.5 - angle) * radius;
                 }
-                else if (xz.y < 0.0 && abs(xz.x) <= halfLen)
-                {
-                    coord = straightSpan + capArc + (halfLen - xz.x);
-                }
                 else
                 {
                     float2 capOffset = xz - float2(-halfLen, 0.0);
                     float angle = atan2(capOffset.y, capOffset.x);
-                    coord = straightSpan * 2.0 + capArc + (angle + pi * 0.5) * radius;
+                    coord = (pi - angle) * radius;
                 }
 
-                return coord / totalLength;
+                float loopCoord = coord / totalLength;
+
+                if (normalOS.y < 0.0)
+                {
+                    loopCoord = 1.0 - loopCoord;
+                }
+
+                return loopCoord;
             }
 
             Varyings Vert(Attributes input)
@@ -98,13 +110,14 @@ Shader "FlowBlast/ConveyorBeltScroll"
                 output.positionHCS = positionInputs.positionCS;
                 output.positionOS = input.positionOS.xyz;
                 output.normalWS = normalInputs.normalWS;
+                output.normalOS = input.normalOS;
                 output.fogFactor = ComputeFogFactor(positionInputs.positionCS.z);
                 return output;
             }
 
             half4 Frag(Varyings input) : SV_Target
             {
-                float loopCoord = GetStadiumLoop01(input.positionOS.xz, _PathHalfLength, _PathRadius);
+                float loopCoord = GetBeltLoop01(input.positionOS.xz, input.normalOS, _PathHalfLength, _PathRadius);
                 float slatPhase = loopCoord * _SlatRepeat - _Time.y * _ScrollSpeed;
                 float slat = step(0.5, frac(slatPhase));
 

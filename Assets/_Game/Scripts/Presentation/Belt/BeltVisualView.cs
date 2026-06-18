@@ -8,7 +8,6 @@ namespace FlowBlast.Presentation.Belt
     public sealed class BeltVisualView : MonoBehaviour
     {
         private static readonly int ScrollSpeedId = Shader.PropertyToID("_ScrollSpeed");
-        private static readonly int SlatRepeatId = Shader.PropertyToID("_SlatRepeat");
 
         [SerializeField] private MeshRenderer meshRenderer;
         [SerializeField] private BeltPath beltPath;
@@ -70,7 +69,6 @@ namespace FlowBlast.Presentation.Belt
 
             meshRenderer.GetPropertyBlock(propertyBlock);
             propertyBlock.SetFloat(ScrollSpeedId, scrollSpeed);
-            propertyBlock.SetFloat(SlatRepeatId, uvRepeatsPerLoop * 3f);
             meshRenderer.SetPropertyBlock(propertyBlock);
         }
 
