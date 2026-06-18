@@ -30,6 +30,20 @@ namespace FlowBlast.Core.Events
         }
     }
 
+    public readonly struct BoxSentToConveyorEvent
+    {
+        public int BoxId { get; }
+        public BlockColor Color { get; }
+        public int SlotIndex { get; }
+
+        public BoxSentToConveyorEvent(int boxId, BlockColor color, int slotIndex)
+        {
+            BoxId = boxId;
+            Color = color;
+            SlotIndex = slotIndex;
+        }
+    }
+
     public readonly struct BoxBlastedEvent
     {
         public int BoxId { get; }

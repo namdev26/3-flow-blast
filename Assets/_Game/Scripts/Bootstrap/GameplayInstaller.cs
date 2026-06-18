@@ -1,5 +1,6 @@
 using FlowBlast.Core.Constants;
 using FlowBlast.Core.Events;
+using FlowBlast.Core.Utilities;
 using FlowBlast.Data;
 using FlowBlast.Patterns.Command;
 using FlowBlast.Patterns.Factory;
@@ -10,6 +11,7 @@ using FlowBlast.Presentation.Block;
 using FlowBlast.Presentation.Box;
 using FlowBlast.Services.Belt;
 using FlowBlast.Services.Block;
+using FlowBlast.Services.Board;
 using FlowBlast.Services.Box;
 using FlowBlast.Services.Level;
 using UnityEngine;
@@ -36,9 +38,14 @@ namespace FlowBlast.Bootstrap
 
         [Header("Scene References")]
         [SerializeField] private BeltPath beltPath;
+        [SerializeField] private BeltPath boxConveyorPath;
         [SerializeField] private Transform blockPoolParent;
         [SerializeField] private Transform boxQueueParent;
         [SerializeField] private Transform boxBeltParent;
+        [Header("Board Test")]
+        [SerializeField] private Transform boardRoot;
+        [SerializeField] private bool spawnBoardTestBoxes = true;
+        [SerializeField] private float boardBoxSpacing = BoardBoxLayout.DefaultTestBoxCellSpacing;
         [SerializeField] private BoxPresentationCoordinator presentationCoordinator;
         [SerializeField] private GameplayLoop gameplayLoop;
         [SerializeField] private TapInputController tapInputController;
@@ -59,7 +66,6 @@ namespace FlowBlast.Bootstrap
             context = BuildContext();
             gameplayLoop.Initialize(context);
             tapInputController.Initialize(context);
-            presentationCoordinator.Initialize(context.EventBus, context.FollowerRegistry);
         }
 
         private void Start()
@@ -70,6 +76,7 @@ namespace FlowBlast.Bootstrap
             }
 
             context.LevelController.StartLevel(levelData);
+            SpawnBoardTestBoxes();
             RegisterCreatedBoxViews();
         }
 
@@ -99,23 +106,32 @@ namespace FlowBlast.Bootstrap
 
             if (beltPath == null)
             {
-                beltPath = GetComponentInChildren<BeltPath>();
+                Transform mainConveyorRoot = TransformHierarchyUtility.FindChildRecursive(
+                    transform,
+                    GameplayZoneNames.ConveyorRoot);
+
+                if (mainConveyorRoot != null)
+                {
+                    beltPath = mainConveyorRoot.GetComponent<BeltPath>();
+                }
             }
 
-            if (blockPoolParent == null)
+            if (boxConveyorPath == null)
             {
-                blockPoolParent = transform.Find("BlockPoolParent");
+                Transform boxConveyorPathRoot = TransformHierarchyUtility.FindChildRecursive(
+                    transform,
+                    GameplayZoneNames.BoxConveyorPath);
+
+                if (boxConveyorPathRoot != null)
+                {
+                    boxConveyorPath = boxConveyorPathRoot.GetComponent<BeltPath>();
+                }
             }
 
-            if (boxQueueParent == null)
-            {
-                boxQueueParent = transform.Find("BoxQueueParent");
-            }
-
-            if (boxBeltParent == null)
-            {
-                boxBeltParent = transform.Find("BoxBeltParent");
-            }
+            blockPoolParent = ResolveSceneParent(blockPoolParent, GameplayZoneNames.BlockPoolParent);
+            boxQueueParent = ResolveSceneParent(boxQueueParent, GameplayZoneNames.BoxQueueParent);
+            boxBeltParent = ResolveSceneParent(boxBeltParent, GameplayZoneNames.BoxBeltParent);
+            boardRoot = ResolveSceneParent(boardRoot, GameplayZoneNames.BoardRoot);
 
             if (presentationCoordinator == null)
             {
@@ -131,6 +147,16 @@ namespace FlowBlast.Bootstrap
             {
                 tapInputController = GetComponent<TapInputController>();
             }
+        }
+
+        private Transform ResolveSceneParent(Transform current, string childName)
+        {
+            if (current != null)
+            {
+                return current;
+            }
+
+            return TransformHierarchyUtility.FindChildRecursive(transform, childName);
         }
 
         private bool ValidateReferences()
@@ -161,7 +187,13 @@ namespace FlowBlast.Bootstrap
 
             if (beltPath == null)
             {
-                Debug.LogError("[FlowBlast] Missing BeltPath in scene.");
+                Debug.LogError("[FlowBlast] Missing main BeltPath on ConveyorRoot.");
+                return false;
+            }
+
+            if (boxConveyorPath == null)
+            {
+                Debug.LogError("[FlowBlast] Missing BoxConveyorPath in Zone_BoxConveyor.");
                 return false;
             }
 
@@ -178,6 +210,7 @@ namespace FlowBlast.Bootstrap
             }
 
             beltPath.EnsureInitialized();
+            boxConveyorPath.EnsureInitialized();
             return true;
         }
 
@@ -185,6 +218,7 @@ namespace FlowBlast.Bootstrap
         {
             IGameEventBus eventBus = new GameEventBus();
             BeltFollowerRegistry followerRegistry = new BeltFollowerRegistry();
+            BeltFollowerRegistry boxConveyorFollowerRegistry = new BeltFollowerRegistry();
 
             BlockViewPool blockPool = new BlockViewPool(blockPrefab, blockPoolParent);
             blockPool.Prewarm(GameConstants.DefaultPoolPrewarmCount);
@@ -197,10 +231,15 @@ namespace FlowBlast.Bootstrap
             float beltSpeed = levelData != null ? levelData.BeltSpeed : GameConstants.DefaultBeltSpeed;
 
             BeltSlotService beltSlotService = new BeltSlotService(maxSlots);
+            BeltSlotService boxConveyorSlotService = new BeltSlotService(GameConstants.DefaultMaxBoxConveyorSlots);
             BoxQueueService boxQueueService = new BoxQueueService();
             BoxRegistryService boxRegistryService = new BoxRegistryService();
             BeltMovementService beltMovementService = new BeltMovementService(beltPath, followerRegistry);
             beltMovementService.SetSpeed(beltSpeed);
+            BoxConveyorMovementService boxConveyorMovementService = new BoxConveyorMovementService(
+                boxConveyorPath,
+                boxConveyorFollowerRegistry);
+            boxConveyorMovementService.SetSpeed(beltSpeed);
 
             FrozenUnlockStrategy frozenUnlockStrategy = new FrozenUnlockStrategy(eventBus);
             BoxCollectionService boxCollectionService = new BoxCollectionService(
@@ -210,6 +249,7 @@ namespace FlowBlast.Bootstrap
 
             BoxBlastService boxBlastService = new BoxBlastService(
                 beltSlotService,
+                boxConveyorSlotService,
                 boxRegistryService,
                 frozenUnlockStrategy,
                 eventBus);
@@ -237,6 +277,10 @@ namespace FlowBlast.Bootstrap
                 beltSlotService,
                 eventBus);
 
+            SendBoardBoxToConveyorCommand sendBoardBoxCommand = new SendBoardBoxToConveyorCommand(
+                boxConveyorSlotService,
+                eventBus);
+
             LevelController levelController = new LevelController(
                 eventBus,
                 levelRepository,
@@ -244,27 +288,72 @@ namespace FlowBlast.Bootstrap
                 boxQueueService,
                 boxRegistryService,
                 beltMovementService,
+                boxConveyorMovementService,
                 blockSpawnService,
                 winEvaluator,
                 loseEvaluator,
-                sendBoxCommand);
+                sendBoxCommand,
+                sendBoardBoxCommand);
+
+            presentationCoordinator.Initialize(
+                eventBus,
+                followerRegistry,
+                boxConveyorFollowerRegistry,
+                boxConveyorPath,
+                GameConstants.DefaultMaxBoxConveyorSlots);
 
             return new GameplayContext(
                 eventBus,
                 levelController,
                 sendBoxCommand,
                 followerRegistry,
-                presentationCoordinator);
+                presentationCoordinator,
+                boxFactory,
+                boxRegistryService);
+        }
+
+        private void SpawnBoardTestBoxes()
+        {
+            if (!spawnBoardTestBoxes || boardRoot == null || context == null)
+            {
+                return;
+            }
+
+            BoardBoxSpawnService boardBoxSpawnService = new BoardBoxSpawnService(context.BoxFactory, boardRoot);
+
+            boardBoxSpawnService.SpawnTestBoxes(
+                BoardBoxLayout.TestBoxCount,
+                context.BoxRegistryService,
+                colorPalette,
+                beltPath,
+                boxBeltParent,
+                boardBoxSpacing);
         }
 
         private void RegisterCreatedBoxViews()
         {
-            BoxView[] views = boxQueueParent.GetComponentsInChildren<BoxView>(true);
+            RegisterBoxViewsUnder(boxQueueParent);
+            RegisterBoxViewsUnder(boardRoot);
+        }
+
+        private void RegisterBoxViewsUnder(Transform parent)
+        {
+            if (parent == null)
+            {
+                return;
+            }
+
+            BoxView[] views = parent.GetComponentsInChildren<BoxView>(true);
 
             for (int i = 0; i < views.Length; i++)
             {
                 views[i].Configure(beltPath, boxBeltParent, colorPalette);
-                presentationCoordinator.RegisterView(views[i]);
+                views[i].ConfigureBoxConveyor(boxConveyorPath, boxBeltParent);
+
+                if (views[i].Model != null)
+                {
+                    presentationCoordinator.RegisterView(views[i]);
+                }
             }
         }
     }

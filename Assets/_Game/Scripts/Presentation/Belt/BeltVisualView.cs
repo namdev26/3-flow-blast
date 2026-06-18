@@ -1,4 +1,5 @@
 using FlowBlast.Core.Constants;
+using FlowBlast.Core.Utilities;
 using FlowBlast.Data;
 using FlowBlast.Services.Belt;
 using UnityEngine;
@@ -35,7 +36,19 @@ namespace FlowBlast.Presentation.Belt
         {
             if (autoResolveSceneReferences && beltPath == null)
             {
-                beltPath = FindFirstObjectByType<BeltPath>();
+                Transform pathRoot = TransformHierarchyUtility.FindChildRecursive(
+                    transform.root,
+                    GameplayZoneNames.BoxConveyorPath);
+
+                if (pathRoot != null)
+                {
+                    beltPath = pathRoot.GetComponent<BeltPath>();
+                }
+
+                if (beltPath == null)
+                {
+                    beltPath = FindFirstObjectByType<BeltPath>();
+                }
             }
 
             ApplyScrollProperties();

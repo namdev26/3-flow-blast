@@ -37,5 +37,7 @@ namespace FlowBlast.Services.Belt
         {
             return activeBoxes;
         }
+
+        public int ActiveCount => activeBoxes.Count;
     }
 }

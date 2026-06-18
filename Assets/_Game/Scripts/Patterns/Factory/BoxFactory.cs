@@ -29,7 +29,14 @@ namespace FlowBlast.Patterns.Factory
 
         public BoxView CreateView(BoxModel model)
         {
-            BoxView view = Object.Instantiate(prefab, queueParent);
+            return CreateView(model, queueParent, Vector3.zero);
+        }
+
+        public BoxView CreateView(BoxModel model, Transform parent, Vector3 localPosition)
+        {
+            Transform spawnParent = parent != null ? parent : queueParent;
+            BoxView view = Object.Instantiate(prefab, spawnParent);
+            view.transform.localPosition = localPosition;
             view.Bind(model);
             return view;
         }

@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using FlowBlast.Bootstrap;
+using FlowBlast.Core.Constants;
 using FlowBlast.Data;
 using FlowBlast.Presentation;
 using FlowBlast.Presentation.Block;
@@ -73,13 +74,18 @@ namespace FlowBlast.Editor
             TapInputController tapInputController = root.AddComponent<TapInputController>();
             BoxPresentationCoordinator presentationCoordinator = root.AddComponent<BoxPresentationCoordinator>();
 
-            GameObject beltRoot = new GameObject("Belt");
-            beltRoot.transform.SetParent(root.transform, false);
+            Transform mainZone = CreateChild(root.transform, GameplayZoneNames.MainConveyor);
+            Transform boxZone = CreateChild(root.transform, GameplayZoneNames.BoxConveyor);
+            Transform boardZone = CreateChild(root.transform, GameplayZoneNames.Board);
+
+            GameObject beltRoot = new GameObject(GameplayZoneNames.ConveyorRoot);
+            beltRoot.transform.SetParent(mainZone, false);
             BeltPath beltPath = beltRoot.AddComponent<BeltPath>();
 
-            Transform blockPoolParent = CreateChild(root.transform, "BlockPoolParent");
-            Transform boxQueueParent = CreateChild(root.transform, "BoxQueueParent");
-            Transform boxBeltParent = CreateChild(root.transform, "BoxBeltParent");
+            Transform blockPoolParent = CreateChild(mainZone, GameplayZoneNames.BlockPoolParent);
+            Transform boxQueueParent = CreateChild(boxZone, GameplayZoneNames.BoxQueueParent);
+            Transform boxBeltParent = CreateChild(boxZone, GameplayZoneNames.BoxBeltParent);
+            CreateChild(boardZone, GameplayZoneNames.BoardRoot);
 
             SerializedObject installerSerialized = new SerializedObject(installer);
             installerSerialized.FindProperty("levelData").objectReferenceValue = levelData;

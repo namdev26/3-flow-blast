@@ -1,3 +1,6 @@
+using System;
+using System.Collections;
+using FlowBlast.Core.Constants;
 using FlowBlast.Core.Enums;
 using FlowBlast.Data;
 using FlowBlast.Domain;
@@ -18,18 +21,39 @@ namespace FlowBlast.Presentation.Box
 
         private BoxModel model;
         private IBeltPath beltPath;
+        private IBeltPath boxConveyorPath;
         private Transform beltParent;
+        private Transform boxConveyorParent;
         private float beltDistance;
-        private bool isActiveOnBelt;
+        private bool isActiveOnMainBelt;
+        private bool isActiveOnBoxConveyor;
+        private bool isFlyingToConveyor;
+        private Coroutine flyCoroutine;
         private Quaternion smoothedRotation;
         private Vector3 defaultFillScale;
+        private Transform boxVisualTransform;
+        private Vector3 defaultBoxVisualScale;
 
         public BoxModel Model => model;
         public float BeltDistance => beltDistance;
-        public bool IsActiveOnBelt => isActiveOnBelt;
+        public bool IsActiveOnBelt => isActiveOnMainBelt;
+        public bool IsActiveOnBoxConveyor => isActiveOnBoxConveyor;
+        public bool IsFlyingToConveyor => isFlyingToConveyor;
+        public bool CanReceiveBoardClick =>
+            model != null
+            && !isActiveOnMainBelt
+            && !isActiveOnBoxConveyor
+            && !isFlyingToConveyor
+            && model.CanSendToBelt();
 
         private void Awake()
         {
+            if (meshRenderer != null)
+            {
+                boxVisualTransform = meshRenderer.transform;
+                defaultBoxVisualScale = boxVisualTransform.localScale;
+            }
+
             if (fillIndicator != null)
             {
                 defaultFillScale = fillIndicator.localScale;
@@ -41,6 +65,12 @@ namespace FlowBlast.Presentation.Box
             beltPath = path;
             beltParent = beltParentTransform;
             colorPalette = palette;
+        }
+
+        public void ConfigureBoxConveyor(IBeltPath path, Transform parent)
+        {
+            boxConveyorPath = path;
+            boxConveyorParent = parent;
         }
 
         public void Bind(BoxModel boxModel)
@@ -67,7 +97,9 @@ namespace FlowBlast.Presentation.Box
 
         public void MoveToBelt()
         {
-            isActiveOnBelt = true;
+            isFlyingToConveyor = false;
+            isActiveOnBoxConveyor = false;
+            isActiveOnMainBelt = true;
             beltDistance = 0f;
 
             if (beltParent != null)
@@ -82,7 +114,28 @@ namespace FlowBlast.Presentation.Box
 
             RefreshPresentation();
             smoothedRotation = beltPath.GetRotationAtDistance(beltDistance);
-            UpdateTransform(true);
+            UpdateMainBeltTransform(true);
+        }
+
+        public void ActivateOnBoxConveyor(float startDistance)
+        {
+            isFlyingToConveyor = false;
+            isActiveOnMainBelt = false;
+            isActiveOnBoxConveyor = true;
+            beltDistance = startDistance;
+
+            if (boxConveyorParent != null)
+            {
+                transform.SetParent(boxConveyorParent, true);
+            }
+
+            RefreshPresentation();
+
+            if (boxConveyorPath != null)
+            {
+                smoothedRotation = boxConveyorPath.GetRotationAtDistance(beltDistance);
+                UpdateBoxConveyorTransform(true);
+            }
         }
 
         public void SetBeltDistance(float distance)
@@ -90,19 +143,74 @@ namespace FlowBlast.Presentation.Box
             beltDistance = distance;
         }
 
+        public void FlyToConveyorTarget(Vector3 worldTarget, Action onComplete)
+        {
+            if (flyCoroutine != null)
+            {
+                StopCoroutine(flyCoroutine);
+            }
+
+            flyCoroutine = StartCoroutine(FlyToConveyorRoutine(
+                worldTarget,
+                GameConstants.BoxFlyToConveyorDuration,
+                GameConstants.BoxFlyToConveyorArcHeight,
+                onComplete));
+        }
+
+        private IEnumerator FlyToConveyorRoutine(
+            Vector3 worldTarget,
+            float duration,
+            float arcHeight,
+            Action onComplete)
+        {
+            isFlyingToConveyor = true;
+            Vector3 startPosition = transform.position;
+            Vector3 startVisualScale = GetBoardVisualScale();
+            Vector3 targetVisualScale = GetConveyorVisualScale();
+            ApplyBoxVisualScale(startVisualScale);
+
+            float elapsed = 0f;
+            float safeDuration = Mathf.Max(0.01f, duration);
+
+            while (elapsed < safeDuration)
+            {
+                elapsed += Time.deltaTime;
+                float normalizedTime = Mathf.Clamp01(elapsed / safeDuration);
+                float smoothTime = normalizedTime * normalizedTime * (3f - 2f * normalizedTime);
+                Vector3 flatPosition = Vector3.Lerp(startPosition, worldTarget, smoothTime);
+                float arcOffset = 4f * arcHeight * smoothTime * (1f - smoothTime);
+                transform.position = flatPosition + Vector3.up * arcOffset;
+                ApplyBoxVisualScale(Vector3.Lerp(startVisualScale, targetVisualScale, smoothTime));
+                yield return null;
+            }
+
+            transform.position = worldTarget;
+            ApplyBoxVisualScale(targetVisualScale);
+            isFlyingToConveyor = false;
+            flyCoroutine = null;
+            onComplete?.Invoke();
+        }
+
         private void LateUpdate()
         {
-            if (!isActiveOnBelt)
+            if (isActiveOnBoxConveyor)
+            {
+                UpdateBoxConveyorTransform(false);
+                return;
+            }
+
+            if (!isActiveOnMainBelt)
             {
                 return;
             }
 
-            UpdateTransform(false);
+            UpdateMainBeltTransform(false);
         }
 
         public void HideCompleted()
         {
-            isActiveOnBelt = false;
+            isActiveOnMainBelt = false;
+            isActiveOnBoxConveyor = false;
             gameObject.SetActive(false);
         }
 
@@ -130,7 +238,7 @@ namespace FlowBlast.Presentation.Box
                 defaultFillScale.z);
         }
 
-        private void UpdateTransform(bool snapRotation)
+        private void UpdateMainBeltTransform(bool snapRotation)
         {
             BeltFollowerTransformUtility.ApplyPathTransform(
                 transform,
@@ -139,6 +247,44 @@ namespace FlowBlast.Presentation.Box
                 ref smoothedRotation,
                 Time.deltaTime,
                 snapRotation);
+        }
+
+        private void UpdateBoxConveyorTransform(bool snapRotation)
+        {
+            BeltFollowerTransformUtility.ApplyPathTransform(
+                transform,
+                boxConveyorPath,
+                beltDistance,
+                ref smoothedRotation,
+                Time.deltaTime,
+                snapRotation);
+        }
+
+        private Vector3 GetBoardVisualScale()
+        {
+            if (defaultBoxVisualScale != Vector3.zero)
+            {
+                return defaultBoxVisualScale;
+            }
+
+            float boardScale = GameConstants.BoxBoardVisualScale;
+            return new Vector3(boardScale, boardScale, boardScale);
+        }
+
+        private static Vector3 GetConveyorVisualScale()
+        {
+            float conveyorScale = GameConstants.BoxConveyorVisualScale;
+            return new Vector3(conveyorScale, conveyorScale, conveyorScale);
+        }
+
+        private void ApplyBoxVisualScale(Vector3 scale)
+        {
+            if (boxVisualTransform == null)
+            {
+                return;
+            }
+
+            boxVisualTransform.localScale = scale;
         }
     }
 }

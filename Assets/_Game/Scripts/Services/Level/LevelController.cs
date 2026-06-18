@@ -19,10 +19,12 @@ namespace FlowBlast.Services.Level
         private readonly BoxQueueService boxQueueService;
         private readonly BoxRegistryService boxRegistryService;
         private readonly BeltMovementService beltMovementService;
+        private readonly BoxConveyorMovementService boxConveyorMovementService;
         private readonly BlockSpawnService blockSpawnService;
         private readonly WinConditionEvaluator winConditionEvaluator;
         private readonly LoseConditionEvaluator loseConditionEvaluator;
         private readonly SendBoxToBeltCommand sendBoxToBeltCommand;
+        private readonly SendBoardBoxToConveyorCommand sendBoardBoxToConveyorCommand;
 
         private LevelData currentLevel;
         private GamePhase currentPhase = GamePhase.Idle;
@@ -36,10 +38,12 @@ namespace FlowBlast.Services.Level
             BoxQueueService boxQueueService,
             BoxRegistryService boxRegistryService,
             BeltMovementService beltMovementService,
+            BoxConveyorMovementService boxConveyorMovementService,
             BlockSpawnService blockSpawnService,
             WinConditionEvaluator winConditionEvaluator,
             LoseConditionEvaluator loseConditionEvaluator,
-            SendBoxToBeltCommand sendBoxToBeltCommand)
+            SendBoxToBeltCommand sendBoxToBeltCommand,
+            SendBoardBoxToConveyorCommand sendBoardBoxToConveyorCommand)
         {
             this.eventBus = eventBus;
             this.levelRepository = levelRepository;
@@ -47,10 +51,12 @@ namespace FlowBlast.Services.Level
             this.boxQueueService = boxQueueService;
             this.boxRegistryService = boxRegistryService;
             this.beltMovementService = beltMovementService;
+            this.boxConveyorMovementService = boxConveyorMovementService;
             this.blockSpawnService = blockSpawnService;
             this.winConditionEvaluator = winConditionEvaluator;
             this.loseConditionEvaluator = loseConditionEvaluator;
             this.sendBoxToBeltCommand = sendBoxToBeltCommand;
+            this.sendBoardBoxToConveyorCommand = sendBoardBoxToConveyorCommand;
 
             eventBus.Subscribe<BoxBlastedEvent>(OnBoxBlasted);
         }
@@ -78,6 +84,7 @@ namespace FlowBlast.Services.Level
 
             boxRegistryService.Clear();
             beltMovementService.SetSpeed(levelData.BeltSpeed);
+            boxConveyorMovementService.SetSpeed(levelData.BeltSpeed);
             blockSpawnService.LoadSequence(levelData.BlockSequence);
             BuildBoxQueue(levelData);
         }
@@ -85,6 +92,7 @@ namespace FlowBlast.Services.Level
         public void Tick(float deltaTime)
         {
             beltMovementService.Tick(deltaTime);
+            boxConveyorMovementService.Tick(deltaTime);
 
             if (currentPhase != GamePhase.Playing)
             {
@@ -110,6 +118,16 @@ namespace FlowBlast.Services.Level
 
             sendBoxToBeltCommand.Execute();
             return true;
+        }
+
+        public bool TrySendBoardBoxToConveyor(BoxModel box)
+        {
+            if (currentPhase != GamePhase.Playing)
+            {
+                return false;
+            }
+
+            return sendBoardBoxToConveyorCommand.Execute(box);
         }
 
         private void BuildBoxQueue(LevelData levelData)

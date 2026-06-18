@@ -1,4 +1,6 @@
 using FlowBlast.Core.Events;
+using FlowBlast.Core.Utilities;
+using FlowBlast.Presentation.Box;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,10 +9,12 @@ namespace FlowBlast.Bootstrap
     public sealed class TapInputController : MonoBehaviour
     {
         private GameplayContext context;
+        private Camera gameplayCamera;
 
         public void Initialize(GameplayContext gameplayContext)
         {
             context = gameplayContext;
+            gameplayCamera = Camera.main;
             context.EventBus.Subscribe<LevelWonEvent>(OnLevelWon);
             context.EventBus.Subscribe<LevelLostEvent>(OnLevelLost);
         }
@@ -38,7 +42,27 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
+            if (TryHandleBoardBoxClick())
+            {
+                return;
+            }
+
             context.LevelController.TrySendFrontBoxToBelt();
+        }
+
+        private bool TryHandleBoardBoxClick()
+        {
+            if (!BoxClickRaycastUtility.TryGetClickedBoxView(gameplayCamera, out BoxView boxView))
+            {
+                return false;
+            }
+
+            if (!boxView.CanReceiveBoardClick || boxView.Model == null)
+            {
+                return false;
+            }
+
+            return context.LevelController.TrySendBoardBoxToConveyor(boxView.Model);
         }
 
         private static bool WasTapPressedThisFrame()

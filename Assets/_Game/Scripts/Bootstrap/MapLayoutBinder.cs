@@ -1,3 +1,5 @@
+using FlowBlast.Core.Constants;
+using FlowBlast.Core.Utilities;
 using FlowBlast.Data;
 using FlowBlast.Services.Belt;
 using UnityEngine;
@@ -81,7 +83,9 @@ namespace FlowBlast.Bootstrap
 
             if (boxQueueParent == null)
             {
-                boxQueueParent = transform.Find("BoxQueueParent");
+                boxQueueParent = TransformHierarchyUtility.FindChildRecursive(
+                    transform,
+                    GameplayZoneNames.BoxQueueParent);
             }
 
 #if UNITY_EDITOR

@@ -87,15 +87,6 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            boxQueueParent = beltPath.transform.parent != null
-                ? beltPath.transform.parent.Find("BoxQueueParent")
-                : null;
-
-            if (boxQueueParent != null)
-            {
-                return;
-            }
-
             GameplayInstaller installer = beltPath.GetComponentInParent<GameplayInstaller>();
 
             if (installer == null)
