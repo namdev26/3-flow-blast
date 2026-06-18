@@ -10,6 +10,8 @@ namespace FlowBlast.Core.Constants
         public const int BeltLaneCount = 4;
         public const int BeltPathSamplesPerSegment = 48;
         public const float BeltPathRotationSmoothSpeed = 18f;
+        public const float DefaultBeltUvRepeatsPerLoop = 8f;
+        public const float DefaultBeltManualScrollSpeed = 0.15f;
         public const int DefaultPoolPrewarmCount = 64;
     }
 }
