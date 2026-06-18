@@ -42,9 +42,14 @@ namespace FlowBlast.Domain
             return stateMachine.CanSendToBelt();
         }
 
-        public bool TryCollect(BlockColor blockColor)
+        public bool TryCollect(BlockModel block)
         {
-            if (!stateMachine.TryCollect(blockColor))
+            if (block == null)
+            {
+                return false;
+            }
+
+            if (!stateMachine.TryCollect(block))
             {
                 return false;
             }

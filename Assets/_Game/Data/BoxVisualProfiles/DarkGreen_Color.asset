@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff04d5e7429de7c4a965036d2d2e2b62, type: 3}
   m_Name: DarkGreen_Color
   m_EditorClassIdentifier: 
-  blockColor: 2
+  blockColor: 7
   tintColor: {r: 0.05, g: 0.65, b: 0.05, a: 1}
   baseTexture: {fileID: 2800000, guid: 8ec4db96241fb684197836b7d9d02d0c, type: 3}

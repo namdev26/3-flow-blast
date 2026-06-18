@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using FlowBlast.Core.Constants;
-using FlowBlast.Core.Enums;
 using FlowBlast.Data;
 using FlowBlast.Domain;
 using FlowBlast.Patterns.Factory;
@@ -22,7 +21,7 @@ namespace FlowBlast.Services.Block
         private readonly BoxBlastService boxBlastService;
 
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
-        private readonly List<BlockColor> blockSequence = new List<BlockColor>();
+        private readonly List<BoxVisualProfile> blockSequence = new List<BoxVisualProfile>();
 
         private int sequenceIndex;
         private int blocksInFlightCount;
@@ -61,10 +60,7 @@ namespace FlowBlast.Services.Block
         {
             get
             {
-                int beltCapacity = BeltLaneLayout.GetTotalBlockCapacity(
-                    beltPath.TotalLength,
-                    rowSpacing,
-                    laneCount);
+                int beltCapacity = GetBeltCapacity();
 
                 if (beltCapacity <= 0)
                 {
@@ -75,12 +71,13 @@ namespace FlowBlast.Services.Block
             }
         }
 
-        public void LoadSequence(IReadOnlyList<BlockColor> sequence)
+        public void LoadSequence(IReadOnlyList<BoxVisualProfile> sequence)
         {
-            blockFactory.RecyclePool();
             ClearActiveBlocks();
+            blockFactory.RecyclePool();
             blockSequence.Clear();
             sequenceIndex = 0;
+            blocksInFlightCount = 0;
 
             if (beltPath is BeltPath beltPathComponent)
             {
@@ -92,9 +89,12 @@ namespace FlowBlast.Services.Block
                 Debug.LogWarning("[FlowBlast] Belt path length is 0. Assign at least 2 waypoints on BeltPath.");
             }
 
-            for (int i = 0; i < sequence.Count; i++)
+            if (sequence != null)
             {
-                blockSequence.Add(sequence[i]);
+                for (int i = 0; i < sequence.Count; i++)
+                {
+                    blockSequence.Add(sequence[i]);
+                }
             }
 
             PrewarmBelt();
@@ -134,6 +134,8 @@ namespace FlowBlast.Services.Block
                     boxBlastService.TryBlast(collectedBox);
                 }
             }
+
+            MaintainBeltCoverage();
         }
 
         public bool HasActiveBlocks()
@@ -148,36 +150,81 @@ namespace FlowBlast.Services.Block
 
         private void PrewarmBelt()
         {
-            if (beltPath.TotalLength <= Mathf.Epsilon || blockSequence.Count == 0)
-            {
-                return;
-            }
+            MaintainBeltCoverage();
+        }
 
-            float rowDistance = 0f;
+        private void MaintainBeltCoverage()
+        {
+            int missingRows = GetMissingRowCount();
 
-            while (rowDistance < beltPath.TotalLength && HasRemainingSequence())
+            while (missingRows > 0 && HasRemainingSequence())
             {
-                if (!TryConsumeNextColor(out BlockColor color))
+                if (!TryConsumeNextProfile(out BoxVisualProfile visualProfile))
                 {
                     break;
                 }
 
-                if (!SpawnRow(color, rowDistance))
+                float spawnDistance = GetNextSpawnDistance();
+
+                if (!SpawnRow(visualProfile, spawnDistance))
                 {
                     break;
                 }
 
-                rowDistance += rowSpacing;
+                missingRows--;
             }
         }
 
-        private bool SpawnRow(BlockColor color, float rowDistance)
+        private int GetMissingRowCount()
+        {
+            int beltCapacity = GetBeltCapacity();
+
+            if (beltCapacity <= 0)
+            {
+                return 0;
+            }
+
+            int missingBlocks = Mathf.Max(0, beltCapacity - activeBlocks.Count);
+            return missingBlocks / laneCount;
+        }
+
+        private int GetBeltCapacity()
+        {
+            return BeltLaneLayout.GetTotalBlockCapacity(
+                beltPath.TotalLength,
+                rowSpacing,
+                laneCount);
+        }
+
+        private float GetNextSpawnDistance()
+        {
+            if (activeBlocks.Count == 0)
+            {
+                return 0f;
+            }
+
+            float minimumDistance = activeBlocks[0].View.BeltDistance;
+
+            for (int i = 1; i < activeBlocks.Count; i++)
+            {
+                float currentDistance = activeBlocks[i].View.BeltDistance;
+
+                if (currentDistance < minimumDistance)
+                {
+                    minimumDistance = currentDistance;
+                }
+            }
+
+            return minimumDistance - rowSpacing;
+        }
+
+        private bool SpawnRow(BoxVisualProfile visualProfile, float rowDistance)
         {
             bool spawnedAny = false;
 
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
-                BlockModel model = blockFactory.CreateModel(color);
+                BlockModel model = blockFactory.CreateModel(visualProfile);
 
                 if (!blockFactory.TryCreateView(model, out BlockView view))
                 {
@@ -203,27 +250,25 @@ namespace FlowBlast.Services.Block
 
         private void ClearActiveBlocks()
         {
-            blocksInFlightCount = 0;
-
             for (int i = activeBlocks.Count - 1; i >= 0; i--)
             {
                 ReleaseBlockAt(i);
             }
         }
 
-        private bool TryConsumeNextColor(out BlockColor color)
+        private bool TryConsumeNextProfile(out BoxVisualProfile visualProfile)
         {
-            color = BlockColor.None;
+            visualProfile = null;
 
             if (sequenceIndex >= blockSequence.Count)
             {
                 return false;
             }
 
-            color = blockSequence[sequenceIndex];
+            visualProfile = blockSequence[sequenceIndex];
             sequenceIndex++;
 
-            return color != BlockColor.None;
+            return visualProfile != null;
         }
 
         private readonly struct BlockRuntimeEntry

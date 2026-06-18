@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff04d5e7429de7c4a965036d2d2e2b62, type: 3}
   m_Name: TealGreen_Color
   m_EditorClassIdentifier: 
-  blockColor: 6
+  blockColor: 12
   tintColor: {r: 0.14, g: 0.68, b: 0.57, a: 1}
   baseTexture: {fileID: 2800000, guid: e9c95eec54a259e46a87daf7eaeb13a5, type: 3}

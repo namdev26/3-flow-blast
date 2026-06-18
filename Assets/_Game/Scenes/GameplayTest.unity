@@ -410,6 +410,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!4 &726105463 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6059595454549929908, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+  m_PrefabInstance: {fileID: 1652094674}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &848758449
 GameObject:
   m_ObjectHideFlags: 0
@@ -657,6 +662,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 4186588756579119666, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
   m_PrefabInstance: {fileID: 1652094674}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1403402570 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 910001012, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+  m_PrefabInstance: {fileID: 1652094674}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fddc32d4ae515f44d8401246e8490d43, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlowBlast.Services.Belt.BeltPath
 --- !u!1 &1468655227
 GameObject:
   m_ObjectHideFlags: 0
@@ -982,13 +998,29 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+      propertyPath: boardRoot
+      value: 
+      objectReference: {fileID: 726105463}
+    - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+      propertyPath: boxPrefab
+      value: 
+      objectReference: {fileID: 305950922794731500, guid: 424b1cd733b2f6e47a817aa79c4ce4ee, type: 3}
+    - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
       propertyPath: levelData
       value: 
-      objectReference: {fileID: 11400000, guid: 6aa673af7001eaa46aa6ae68c60637a0, type: 2}
+      objectReference: {fileID: 11400000, guid: 6812d647634280349b3b5d31a50ca9de, type: 2}
+    - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+      propertyPath: blockPrefab
+      value: 
+      objectReference: {fileID: 5578321555383340202, guid: 957d37037dc1e3a42b65ebd2e6655491, type: 3}
     - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
       propertyPath: boardBoxSpacing
       value: 1.45
       objectReference: {fileID: 0}
+    - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+      propertyPath: boxConveyorPath
+      value: 
+      objectReference: {fileID: 1403402570}
     - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
       propertyPath: collectionPointMarker
       value: 

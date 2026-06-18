@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using FlowBlast.Core.Constants;
-using FlowBlast.Core.Enums;
 using FlowBlast.Services.Level;
 using UnityEngine;
 
@@ -15,8 +14,11 @@ namespace FlowBlast.Data
         [SerializeField] private int maxBacklogBlocks = GameConstants.DefaultMaxBacklogBlocks;
         [SerializeField] private int beltLaneCount = GameConstants.BeltLaneCount;
         [SerializeField] private bool autoBuildBlockSequenceFromBoxes = true;
+        [SerializeField] private int editorGridColumns = 5;
+        [SerializeField] private int editorGridRows = 5;
+        [SerializeField] private float editorGridCellSpacing = 1.5f;
         [SerializeField] private List<LevelBoxPlacement> boxPlacements = new List<LevelBoxPlacement>();
-        [SerializeField] private List<BlockColor> blockSequence = new List<BlockColor>();
+        [SerializeField] private List<BoxVisualProfile> blockSequence = new List<BoxVisualProfile>();
         [SerializeField] private List<BoxDefinition> boxQueue = new List<BoxDefinition>();
 
         public string LevelId => levelId;
@@ -25,8 +27,11 @@ namespace FlowBlast.Data
         public int MaxBacklogBlocks => maxBacklogBlocks;
         public int BeltLaneCount => beltLaneCount;
         public bool AutoBuildBlockSequenceFromBoxes => autoBuildBlockSequenceFromBoxes;
+        public int EditorGridColumns => editorGridColumns;
+        public int EditorGridRows => editorGridRows;
+        public float EditorGridCellSpacing => editorGridCellSpacing;
         public IReadOnlyList<LevelBoxPlacement> BoxPlacements => boxPlacements;
-        public IReadOnlyList<BlockColor> BlockSequence => autoBuildBlockSequenceFromBoxes
+        public IReadOnlyList<BoxVisualProfile> BlockSequence => autoBuildBlockSequenceFromBoxes
             ? LevelBlockSequenceBuilder.BuildFromPlacements(boxPlacements, beltLaneCount)
             : blockSequence;
         public int TotalBlockCount => GetTotalBlockCount();

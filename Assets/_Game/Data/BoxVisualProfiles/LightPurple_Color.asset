@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff04d5e7429de7c4a965036d2d2e2b62, type: 3}
   m_Name: LightPurple_Color
   m_EditorClassIdentifier: 
-  blockColor: 5
+  blockColor: 10
   tintColor: {r: 0.82, g: 0.57, b: 0.95, a: 1}
   baseTexture: {fileID: 2800000, guid: f3667c212b49e0643bda33a3034120bf, type: 3}

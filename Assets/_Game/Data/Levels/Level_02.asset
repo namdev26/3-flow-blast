@@ -19,60 +19,53 @@ MonoBehaviour:
   beltLaneCount: 4
   autoBuildBlockSequenceFromBoxes: 1
   boxPlacements:
-  - localPosition: {x: 0, y: 0, z: 0}
-    color: 2
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
   - localPosition: {x: -1.5, y: 0, z: 0}
     color: 1
+    visualProfile: {fileID: 0}
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
   - localPosition: {x: 1.5, y: 0, z: 0}
     color: 1
+    visualProfile: {fileID: 0}
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
   - localPosition: {x: -1.5, y: 0, z: 1.5}
     color: 3
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: 1.5}
-    color: 3
+    visualProfile: {fileID: 0}
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
   - localPosition: {x: -1.5, y: 0, z: -1.5}
     color: 4
+    visualProfile: {fileID: 0}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -4.5, y: 0, z: 1.5}
+    color: 2
+    visualProfile: {fileID: 0}
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1.5, y: 0, z: 1.5}
+    color: 2
+    visualProfile: {fileID: 0}
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
   - localPosition: {x: 1.5, y: 0, z: -1.5}
-    color: 4
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: -3, y: 0, z: 1.5}
     color: 2
+    visualProfile: {fileID: 0}
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 3, y: 0, z: 1.5}
+  - localPosition: {x: -4.5, y: 0, z: -1.5}
     color: 2
+    visualProfile: {fileID: 0}
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 3, y: 0, z: -1.5}
-    color: 2
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: -3, y: 0, z: -1.5}
-    color: 2
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  blockSequence: 
+  blockSequence: []
   boxQueue: []

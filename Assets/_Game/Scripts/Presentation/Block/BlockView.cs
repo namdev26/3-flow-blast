@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using FlowBlast.Core.Constants;
-using FlowBlast.Core.Enums;
 using FlowBlast.Data;
 using FlowBlast.Domain;
 using FlowBlast.Presentation.Belt;
@@ -12,6 +11,11 @@ namespace FlowBlast.Presentation.Block
 {
     public sealed class BlockView : MonoBehaviour, IBeltFollower
     {
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+
         [SerializeField] private MeshRenderer meshRenderer;
 
         private BlockModel model;
@@ -24,11 +28,17 @@ namespace FlowBlast.Presentation.Block
         private bool isFlyingToBox;
         private Coroutine flyCoroutine;
         private Quaternion smoothedRotation;
+        private MaterialPropertyBlock propertyBlock;
 
         public BlockModel Model => model;
         public float BeltDistance => beltDistance;
         public bool IsActiveOnBelt => isActiveOnBelt;
         public bool IsFlyingToBox => isFlyingToBox;
+
+        private void Awake()
+        {
+            propertyBlock = new MaterialPropertyBlock();
+        }
 
         public void Configure(IBeltPath path)
         {
@@ -38,6 +48,13 @@ namespace FlowBlast.Presentation.Block
         public void Bind(BlockModel blockModel, BlockColorPalette palette)
         {
             model = blockModel;
+
+            if (blockModel?.VisualProfile != null)
+            {
+                ApplyVisualProfile(blockModel.VisualProfile);
+                return;
+            }
+
             ApplyColor(palette.GetUnityColor(blockModel.Color));
         }
 
@@ -130,7 +147,37 @@ namespace FlowBlast.Presentation.Block
                 return;
             }
 
-            meshRenderer.material.color = color;
+            if (propertyBlock == null)
+            {
+                propertyBlock = new MaterialPropertyBlock();
+            }
+
+            meshRenderer.GetPropertyBlock(propertyBlock);
+            propertyBlock.SetColor(BaseColorId, color);
+            propertyBlock.SetColor(ColorId, color);
+            propertyBlock.SetTexture(BaseMapId, null);
+            propertyBlock.SetTexture(MainTexId, null);
+            meshRenderer.SetPropertyBlock(propertyBlock);
+        }
+
+        private void ApplyVisualProfile(BoxVisualProfile visualProfile)
+        {
+            if (meshRenderer == null)
+            {
+                return;
+            }
+
+            if (propertyBlock == null)
+            {
+                propertyBlock = new MaterialPropertyBlock();
+            }
+
+            meshRenderer.GetPropertyBlock(propertyBlock);
+            propertyBlock.SetColor(BaseColorId, visualProfile.TintColor);
+            propertyBlock.SetColor(ColorId, visualProfile.TintColor);
+            propertyBlock.SetTexture(BaseMapId, visualProfile.BaseTexture);
+            propertyBlock.SetTexture(MainTexId, visualProfile.BaseTexture);
+            meshRenderer.SetPropertyBlock(propertyBlock);
         }
 
         private void ApplyBeltTransform(bool snapRotation)

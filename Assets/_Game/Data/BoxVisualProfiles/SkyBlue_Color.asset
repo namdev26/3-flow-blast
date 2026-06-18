@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff04d5e7429de7c4a965036d2d2e2b62, type: 3}
   m_Name: SkyBlue_Color
   m_EditorClassIdentifier: 
-  blockColor: 6
+  blockColor: 13
   tintColor: {r: 0.43, g: 0.7, b: 0.97, a: 1}
   baseTexture: {fileID: 2800000, guid: 91fb296bd4b180746b3ec5f2b11b9a91, type: 3}

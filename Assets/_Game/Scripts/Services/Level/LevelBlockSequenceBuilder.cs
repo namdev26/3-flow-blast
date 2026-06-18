@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using FlowBlast.Core.Enums;
 using FlowBlast.Data;
 using UnityEngine;
 
@@ -7,9 +6,9 @@ namespace FlowBlast.Services.Level
 {
     public static class LevelBlockSequenceBuilder
     {
-        public static List<BlockColor> BuildFromPlacements(IReadOnlyList<LevelBoxPlacement> boxPlacements, int laneCount)
+        public static List<BoxVisualProfile> BuildFromPlacements(IReadOnlyList<LevelBoxPlacement> boxPlacements, int laneCount)
         {
-            List<BlockColor> sequence = new List<BlockColor>();
+            List<BoxVisualProfile> sequence = new List<BoxVisualProfile>();
 
             if (boxPlacements == null || boxPlacements.Count == 0)
             {
@@ -25,7 +24,7 @@ namespace FlowBlast.Services.Level
 
                 for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
                 {
-                    sequence.Add(placement.Color);
+                    sequence.Add(placement.VisualProfile);
                 }
             }
 

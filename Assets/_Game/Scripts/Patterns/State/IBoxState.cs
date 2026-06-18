@@ -1,4 +1,5 @@
 using FlowBlast.Core.Enums;
+using FlowBlast.Domain;
 
 namespace FlowBlast.Patterns.State
 {
@@ -6,6 +7,6 @@ namespace FlowBlast.Patterns.State
     {
         BoxStateId StateId { get; }
         bool CanSendToBelt(BoxStateContext context);
-        bool TryCollect(BoxStateContext context, BlockColor blockColor);
+        bool TryCollect(BoxStateContext context, BlockModel block);
     }
 }

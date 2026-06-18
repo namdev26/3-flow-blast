@@ -74,7 +74,7 @@ namespace FlowBlast.Services.Box
                     continue;
                 }
 
-                if (!box.TryCollect(block.Color))
+                if (!box.TryCollect(block))
                 {
                     continue;
                 }
@@ -99,7 +99,7 @@ namespace FlowBlast.Services.Box
                     continue;
                 }
 
-                if (!box.TryCollect(block.Color))
+                if (!box.TryCollect(block))
                 {
                     continue;
                 }

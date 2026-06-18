@@ -1,4 +1,5 @@
 using FlowBlast.Core.Enums;
+using FlowBlast.Domain;
 
 namespace FlowBlast.Patterns.State
 {
@@ -11,14 +12,19 @@ namespace FlowBlast.Patterns.State
             return false;
         }
 
-        public bool TryCollect(BoxStateContext context, BlockColor blockColor)
+        public bool TryCollect(BoxStateContext context, BlockModel block)
         {
-            if (context.Box.IsFull())
+            if (context.Box.IsFull() || block == null)
             {
                 return false;
             }
 
-            return context.Box.Color == blockColor;
+            if (context.Box.VisualProfile != null || block.VisualProfile != null)
+            {
+                return context.Box.VisualProfile == block.VisualProfile;
+            }
+
+            return context.Box.Color == block.Color;
         }
     }
 }

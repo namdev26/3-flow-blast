@@ -1,3 +1,4 @@
+using FlowBlast.Core.Enums;
 using FlowBlast.Data;
 using FlowBlast.Domain;
 using FlowBlast.Patterns.Pool;
@@ -20,10 +21,11 @@ namespace FlowBlast.Patterns.Factory
             this.beltPath = beltPath;
         }
 
-        public BlockModel CreateModel(Core.Enums.BlockColor color)
+        public BlockModel CreateModel(BoxVisualProfile visualProfile)
         {
             nextId++;
-            return new BlockModel(nextId, color);
+            BlockColor color = visualProfile != null ? visualProfile.BlockColor : BlockColor.None;
+            return new BlockModel(nextId, color, visualProfile);
         }
 
         public bool TryCreateView(BlockModel model, out BlockView view)

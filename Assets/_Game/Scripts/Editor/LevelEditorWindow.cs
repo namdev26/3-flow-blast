@@ -31,6 +31,9 @@ namespace FlowBlast.Editor
         private SerializedProperty autoBuildBlockSequenceFromBoxesProperty;
         private SerializedProperty blockSequenceProperty;
         private SerializedProperty beltLaneCountProperty;
+        private SerializedProperty editorGridColumnsProperty;
+        private SerializedProperty editorGridRowsProperty;
+        private SerializedProperty editorGridCellSpacingProperty;
         private Vector2 windowScrollPosition;
         private Vector2 boxListScrollPosition;
         private int selectedPlacementIndex = -1;
@@ -46,6 +49,7 @@ namespace FlowBlast.Editor
         private bool showSequence = true;
         private bool showGridAuthoring = true;
         private bool showBoxList = true;
+        private bool isSaveRequested;
         private List<BoxVisualProfile> cachedVisualProfiles;
 
         public static bool IsOpen => instance != null;
@@ -113,9 +117,8 @@ namespace FlowBlast.Editor
                 : Selection.activeObject as LevelData;
             gameplayInstaller = FindFirstObjectByType<GameplayInstaller>();
             RefreshSerializedData();
-            CleanupDuplicatePlacements();
             selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex, -1, GetPlacementCount() - 1);
-            SyncGridSizeFromData();
+            SyncGridSettingsFromSerializedData();
         }
 
         private void RefreshSerializedData()
@@ -127,6 +130,9 @@ namespace FlowBlast.Editor
                 autoBuildBlockSequenceFromBoxesProperty = null;
                 blockSequenceProperty = null;
                 beltLaneCountProperty = null;
+                editorGridColumnsProperty = null;
+                editorGridRowsProperty = null;
+                editorGridCellSpacingProperty = null;
                 return;
             }
 
@@ -135,6 +141,10 @@ namespace FlowBlast.Editor
             autoBuildBlockSequenceFromBoxesProperty = serializedLevelData.FindProperty("autoBuildBlockSequenceFromBoxes");
             blockSequenceProperty = serializedLevelData.FindProperty("blockSequence");
             beltLaneCountProperty = serializedLevelData.FindProperty("beltLaneCount");
+            editorGridColumnsProperty = serializedLevelData.FindProperty("editorGridColumns");
+            editorGridRowsProperty = serializedLevelData.FindProperty("editorGridRows");
+            editorGridCellSpacingProperty = serializedLevelData.FindProperty("editorGridCellSpacing");
+            SyncGridSettingsFromSerializedData();
         }
 
         private void OnGUI()
@@ -149,6 +159,7 @@ namespace FlowBlast.Editor
 
             RefreshSerializedDataIfNeeded();
             serializedLevelData.Update();
+            SyncGridSettingsFromSerializedData();
 
             using (EditorGUILayout.ScrollViewScope scrollView = new EditorGUILayout.ScrollViewScope(windowScrollPosition))
             {
@@ -168,7 +179,18 @@ namespace FlowBlast.Editor
                 DrawSummarySection();
             }
 
-            serializedLevelData.ApplyModifiedProperties();
+            SyncSerializedGridSettings();
+
+            if (serializedLevelData.hasModifiedProperties)
+            {
+                serializedLevelData.ApplyModifiedProperties();
+            }
+
+            if (isSaveRequested)
+            {
+                isSaveRequested = false;
+                SaveLevel();
+            }
         }
 
         private void DrawHeader()
@@ -196,7 +218,8 @@ namespace FlowBlast.Editor
 
                 if (GUILayout.Button("Save", EditorStyles.toolbarButton, GUILayout.Width(44f)))
                 {
-                    SaveLevel();
+                    isSaveRequested = true;
+                    GUI.FocusControl(null);
                 }
 
                 GUILayout.FlexibleSpace();
@@ -286,21 +309,38 @@ namespace FlowBlast.Editor
         {
             EditorGUILayout.LabelField("Grid Size", EditorStyles.boldLabel);
 
-            using (new EditorGUILayout.HorizontalScope())
+            if (editorGridColumnsProperty != null && editorGridRowsProperty != null)
             {
-                gridWidth = Mathf.Max(1, EditorGUILayout.IntField("Columns", gridWidth));
-                gridHeight = Mathf.Max(1, EditorGUILayout.IntField("Rows", gridHeight));
-            }
-
-            gridCellSpacing = Mathf.Max(0.25f, EditorGUILayout.FloatField("Cell Spacing", gridCellSpacing));
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Fit From Boxes"))
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    SyncGridSizeFromData();
+                    editorGridColumnsProperty.intValue = Mathf.Max(1, EditorGUILayout.IntField("Columns", editorGridColumnsProperty.intValue));
+                    editorGridRowsProperty.intValue = Mathf.Max(1, EditorGUILayout.IntField("Rows", editorGridRowsProperty.intValue));
                 }
 
+                gridWidth = editorGridColumnsProperty.intValue;
+                gridHeight = editorGridRowsProperty.intValue;
+            }
+            else
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    gridWidth = Mathf.Max(1, EditorGUILayout.IntField("Columns", gridWidth));
+                    gridHeight = Mathf.Max(1, EditorGUILayout.IntField("Rows", gridHeight));
+                }
+            }
+
+            if (editorGridCellSpacingProperty != null)
+            {
+                editorGridCellSpacingProperty.floatValue = Mathf.Max(0.25f, EditorGUILayout.FloatField("Cell Spacing", editorGridCellSpacingProperty.floatValue));
+                gridCellSpacing = editorGridCellSpacingProperty.floatValue;
+            }
+            else
+            {
+                gridCellSpacing = Mathf.Max(0.25f, EditorGUILayout.FloatField("Cell Spacing", gridCellSpacing));
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
                 if (GUILayout.Button("Center Layout"))
                 {
                     CenterAllPlacements();
@@ -504,6 +544,7 @@ namespace FlowBlast.Editor
             }
 
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(selectedPlacementIndex);
+            LevelBoxPlacement placement = levelData.BoxPlacements[selectedPlacementIndex];
             SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
             Vector3 previousLocalPosition = localPositionProperty.vector3Value;
 
@@ -520,9 +561,19 @@ namespace FlowBlast.Editor
 
             SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
             DrawSelectedPlacementVisualPalette(placementProperty, visualProfileProperty);
-            EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("capacity"));
-            EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("isHidden"));
-            EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("frozenClearsRequired"));
+
+            EditorGUI.BeginChangeCheck();
+            int nextCapacity = Mathf.Max(1, EditorGUILayout.IntField("Capacity", placement.Capacity));
+            bool nextIsHidden = EditorGUILayout.Toggle("Is Hidden", placement.IsHidden);
+            int nextFrozenClearsRequired = Mathf.Max(0, EditorGUILayout.IntField("Frozen Clears Required", placement.FrozenClearsRequired));
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                placement.Capacity = nextCapacity;
+                placement.IsHidden = nextIsHidden;
+                placement.FrozenClearsRequired = nextFrozenClearsRequired;
+                PersistLevelDataChanges();
+            }
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -667,8 +718,6 @@ namespace FlowBlast.Editor
             if (placementIndex >= 0)
             {
                 SelectPlacement(placementIndex);
-                ApplyBrushToPlacement(placementIndex);
-                MovePlacementToGridCell(placementIndex, column, row);
                 return;
             }
 
@@ -983,50 +1032,6 @@ namespace FlowBlast.Editor
             boxPlacementsProperty.DeleteArrayElementAtIndex(placementIndex);
         }
 
-        private void CleanupDuplicatePlacements()
-        {
-            if (serializedLevelData == null || boxPlacementsProperty == null)
-            {
-                return;
-            }
-
-            serializedLevelData.Update();
-            HashSet<Vector2Int> occupiedCells = new HashSet<Vector2Int>();
-            bool hasChanged = false;
-
-            for (int i = boxPlacementsProperty.arraySize - 1; i >= 0; i--)
-            {
-                SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(i);
-                SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
-                Vector2Int cell = GetRawGridCellFromLocalPosition(localPositionProperty.vector3Value);
-                Vector3 normalizedLocalPosition = GetLocalPositionFromGridCell(cell.x, cell.y);
-
-                if ((localPositionProperty.vector3Value - normalizedLocalPosition).sqrMagnitude > 0.0001f)
-                {
-                    localPositionProperty.vector3Value = normalizedLocalPosition;
-                    hasChanged = true;
-                }
-
-                if (occupiedCells.Add(cell))
-                {
-                    continue;
-                }
-
-                boxPlacementsProperty.DeleteArrayElementAtIndex(i);
-                hasChanged = true;
-            }
-
-            if (!hasChanged)
-            {
-                serializedLevelData.ApplyModifiedPropertiesWithoutUndo();
-                return;
-            }
-
-            selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex, -1, boxPlacementsProperty.arraySize - 1);
-            serializedLevelData.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(levelData);
-        }
-
         private void RefreshSerializedDataIfNeeded()
         {
             if (levelData == null)
@@ -1038,8 +1043,6 @@ namespace FlowBlast.Editor
             {
                 RefreshSerializedData();
             }
-
-            CleanupDuplicatePlacements();
         }
 
         private void DrawProperty(string propertyName)
@@ -1098,10 +1101,9 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            CleanupDuplicatePlacements();
-            serializedLevelData?.ApplyModifiedProperties();
-            EditorUtility.SetDirty(levelData);
-            AssetDatabase.SaveAssets();
+            PersistLevelDataChanges();
+            RefreshSerializedData();
+            Repaint();
             ShowNotification(new GUIContent($"Saved: {levelData.name}"));
         }
 
@@ -1340,32 +1342,54 @@ namespace FlowBlast.Editor
             return new Vector2Int(column, row);
         }
 
-        private void SyncGridSizeFromData()
+        private void SyncGridSettingsFromSerializedData()
         {
-            if (boxPlacementsProperty == null || boxPlacementsProperty.arraySize == 0)
+            if (editorGridColumnsProperty != null)
             {
-                gridWidth = Mathf.Max(1, gridWidth);
-                gridHeight = Mathf.Max(1, gridHeight);
+                gridWidth = Mathf.Max(1, editorGridColumnsProperty.intValue);
+            }
+
+            if (editorGridRowsProperty != null)
+            {
+                gridHeight = Mathf.Max(1, editorGridRowsProperty.intValue);
+            }
+
+            if (editorGridCellSpacingProperty != null)
+            {
+                gridCellSpacing = Mathf.Max(0.25f, editorGridCellSpacingProperty.floatValue);
+            }
+        }
+
+        private void SyncSerializedGridSettings()
+        {
+            if (editorGridColumnsProperty != null)
+            {
+                editorGridColumnsProperty.intValue = Mathf.Max(1, gridWidth);
+            }
+
+            if (editorGridRowsProperty != null)
+            {
+                editorGridRowsProperty.intValue = Mathf.Max(1, gridHeight);
+            }
+
+            if (editorGridCellSpacingProperty != null)
+            {
+                editorGridCellSpacingProperty.floatValue = Mathf.Max(0.25f, gridCellSpacing);
+            }
+        }
+
+        private void PersistLevelDataChanges()
+        {
+            if (levelData == null || serializedLevelData == null)
+            {
                 return;
             }
 
-            int minColumn = 0;
-            int maxColumn = 0;
-            int minRow = 0;
-            int maxRow = 0;
-
-            for (int i = 0; i < boxPlacementsProperty.arraySize; i++)
-            {
-                SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(i);
-                Vector2Int cell = GetRawGridCellFromLocalPosition(placementProperty.FindPropertyRelative("localPosition").vector3Value);
-                minColumn = Mathf.Min(minColumn, cell.x);
-                maxColumn = Mathf.Max(maxColumn, cell.x);
-                minRow = Mathf.Min(minRow, cell.y);
-                maxRow = Mathf.Max(maxRow, cell.y);
-            }
-
-            gridWidth = Mathf.Max(DefaultGridWidth, maxColumn - minColumn + 1);
-            gridHeight = Mathf.Max(DefaultGridHeight, maxRow - minRow + 1);
+            SyncSerializedGridSettings();
+            serializedLevelData.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(levelData);
+            AssetDatabase.SaveAssetIfDirty(levelData);
+            serializedLevelData.UpdateIfRequiredOrScript();
         }
 
         private static Vector3 LocalToWorld(Transform boardRoot, Vector3 localPosition)

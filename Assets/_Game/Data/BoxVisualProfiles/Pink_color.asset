@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff04d5e7429de7c4a965036d2d2e2b62, type: 3}
   m_Name: Pink_color
   m_EditorClassIdentifier: 
-  blockColor: 5
+  blockColor: 11
   tintColor: {r: 0.94, g: 0.15, b: 0.76, a: 1}
   baseTexture: {fileID: 2800000, guid: ec4914399e6d20f4180baf2d99d7bb8b, type: 3}

@@ -58,7 +58,10 @@ namespace FlowBlast.Editor
             EditorGUILayout.Space(8f);
             DrawSummarySection();
 
-            serializedObject.ApplyModifiedProperties();
+            if (serializedObject.hasModifiedProperties)
+            {
+                serializedObject.ApplyModifiedProperties();
+            }
         }
 
         private void DrawSettingsSection()
@@ -111,11 +114,10 @@ namespace FlowBlast.Editor
 
         private void DrawPlacementItem(int index, SerializedProperty placementProperty)
         {
+            LevelData levelData = (LevelData)target;
+            LevelBoxPlacement placement = levelData.BoxPlacements[index];
             SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
-            SerializedProperty capacityProperty = placementProperty.FindPropertyRelative("capacity");
             SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
-            SerializedProperty isHiddenProperty = placementProperty.FindPropertyRelative("isHidden");
-            SerializedProperty frozenClearsRequiredProperty = placementProperty.FindPropertyRelative("frozenClearsRequired");
             bool isSelected = selectedPlacementIndex == index;
             GUIStyle itemStyle = isSelected ? EditorStyles.helpBox : EditorStyles.inspectorDefaultMargins;
 
@@ -140,9 +142,20 @@ namespace FlowBlast.Editor
                 {
                     SyncPlacementColorFromVisualProfile(placementProperty);
                 }
-                EditorGUILayout.PropertyField(capacityProperty);
-                EditorGUILayout.PropertyField(isHiddenProperty);
-                EditorGUILayout.PropertyField(frozenClearsRequiredProperty);
+                EditorGUI.BeginChangeCheck();
+                int nextCapacity = Mathf.Max(1, EditorGUILayout.IntField("Capacity", placement.Capacity));
+                bool nextIsHidden = EditorGUILayout.Toggle("Is Hidden", placement.IsHidden);
+                int nextFrozenClearsRequired = Mathf.Max(0, EditorGUILayout.IntField("Frozen Clears Required", placement.FrozenClearsRequired));
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    placement.Capacity = nextCapacity;
+                    placement.IsHidden = nextIsHidden;
+                    placement.FrozenClearsRequired = nextFrozenClearsRequired;
+                    EditorUtility.SetDirty(target);
+                    AssetDatabase.SaveAssetIfDirty(target);
+                    serializedObject.UpdateIfRequiredOrScript();
+                }
             }
         }
 

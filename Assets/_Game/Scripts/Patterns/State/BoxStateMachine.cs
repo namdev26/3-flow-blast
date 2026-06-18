@@ -45,9 +45,9 @@ namespace FlowBlast.Patterns.State
             return currentState.CanSendToBelt(context);
         }
 
-        public bool TryCollect(BlockColor blockColor)
+        public bool TryCollect(BlockModel block)
         {
-            return currentState.TryCollect(context, blockColor);
+            return currentState.TryCollect(context, block);
         }
     }
 }

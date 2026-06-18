@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ff04d5e7429de7c4a965036d2d2e2b62, type: 3}
   m_Name: White_Color
   m_EditorClassIdentifier: 
-  blockColor: 0
+  blockColor: 17
   tintColor: {r: 1, g: 1, b: 1, a: 1}
   baseTexture: {fileID: 2800000, guid: 32ec37e8b18697846b9718a162d72bd9, type: 3}

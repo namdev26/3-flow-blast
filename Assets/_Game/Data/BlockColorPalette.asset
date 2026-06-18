@@ -14,10 +14,36 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FlowBlast.Data.BlockColorPalette
   entries:
   - BlockColor: 1
-    UnityColor: {r: 1, g: 0, b: 0, a: 1}
+    UnityColor: {r: 1, g: 0.2, b: 0.2, a: 1}
   - BlockColor: 2
-    UnityColor: {r: 0, g: 1, b: 0, a: 1}
+    UnityColor: {r: 0.45, g: 0.9, b: 0.05, a: 1}
   - BlockColor: 3
-    UnityColor: {r: 0, g: 0, b: 1, a: 1}
+    UnityColor: {r: 0.16, g: 0.53, b: 0.95, a: 1}
   - BlockColor: 4
-    UnityColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    UnityColor: {r: 1, g: 0.84, b: 0.1, a: 1}
+  - BlockColor: 5
+    UnityColor: {r: 0.52, g: 0.25, b: 0.95, a: 1}
+  - BlockColor: 6
+    UnityColor: {r: 0.14, g: 0.68, b: 0.57, a: 1}
+  - BlockColor: 7
+    UnityColor: {r: 0.05, g: 0.65, b: 0.05, a: 1}
+  - BlockColor: 8
+    UnityColor: {r: 0.35, g: 0.82, b: 0.95, a: 1}
+  - BlockColor: 9
+    UnityColor: {r: 1, g: 0.55, b: 0.15, a: 1}
+  - BlockColor: 10
+    UnityColor: {r: 0.82, g: 0.57, b: 0.95, a: 1}
+  - BlockColor: 11
+    UnityColor: {r: 0.94, g: 0.15, b: 0.76, a: 1}
+  - BlockColor: 12
+    UnityColor: {r: 0.14, g: 0.68, b: 0.57, a: 1}
+  - BlockColor: 13
+    UnityColor: {r: 0.43, g: 0.7, b: 0.97, a: 1}
+  - BlockColor: 14
+    UnityColor: {r: 0.46, g: 0.29, b: 0.13, a: 1}
+  - BlockColor: 15
+    UnityColor: {r: 0.42, g: 0.46, b: 0.58, a: 1}
+  - BlockColor: 16
+    UnityColor: {r: 0.72, g: 0.78, b: 0.92, a: 1}
+  - BlockColor: 17
+    UnityColor: {r: 1, g: 1, b: 1, a: 1}
