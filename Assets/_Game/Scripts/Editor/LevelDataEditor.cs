@@ -166,7 +166,7 @@ namespace FlowBlast.Editor
         private void AddPlacement()
         {
             int insertIndex = boxPlacementsProperty.arraySize;
-            boxPlacementsProperty.InsertArrayElementAtIndex(insertIndex);
+            boxPlacementsProperty.arraySize++;
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(insertIndex);
             placementProperty.FindPropertyRelative("localPosition").vector3Value = GetNextPlacementPosition();
             placementProperty.FindPropertyRelative("color").enumValueIndex = (int)BlockColor.Green;

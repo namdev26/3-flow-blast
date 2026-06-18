@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using FlowBlast.Bootstrap;
 using FlowBlast.Core.Constants;
 using FlowBlast.Core.Enums;
@@ -10,6 +11,8 @@ namespace FlowBlast.Editor
 {
     public sealed class LevelEditorWindow : EditorWindow
     {
+        private const string DefaultLevelFolder = "Assets/_Game/Data/Levels";
+        private const string DefaultLevelName = "LevelData";
         private const float DefaultCellSpacing = 1.5f;
         private const float GridCellButtonSize = 34f;
         private const float GridColorPreviewSize = 18f;
@@ -105,6 +108,7 @@ namespace FlowBlast.Editor
                 : Selection.activeObject as LevelData;
             gameplayInstaller = FindFirstObjectByType<GameplayInstaller>();
             RefreshSerializedData();
+            CleanupDuplicatePlacements();
             selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex, -1, GetPlacementCount() - 1);
             SyncGridSizeFromData();
         }
@@ -167,6 +171,23 @@ namespace FlowBlast.Editor
                 if (newLevelData != levelData)
                 {
                     Initialize(newLevelData);
+                }
+
+                GUILayout.Space(6f);
+
+                if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(44f)))
+                {
+                    CreateLevelAsset();
+                }
+
+                if (GUILayout.Button("Load", EditorStyles.toolbarButton, GUILayout.Width(44f)))
+                {
+                    LoadSelectedLevel();
+                }
+
+                if (GUILayout.Button("Save", EditorStyles.toolbarButton, GUILayout.Width(44f)))
+                {
+                    SaveLevel();
                 }
 
                 GUILayout.FlexibleSpace();
@@ -326,10 +347,40 @@ namespace FlowBlast.Editor
                 DrawCellLabel(cellRect, placementIndex + 1, GetReadableTextColor(fillColor));
             }
 
+            if (HandleGridCellRightClick(cellRect, placementIndex))
+            {
+                return;
+            }
+
             if (GUI.Button(cellRect, GUIContent.none, GUIStyle.none))
             {
                 HandleGridCellClick(column, row, placementIndex);
             }
+        }
+
+        private bool HandleGridCellRightClick(Rect cellRect, int placementIndex)
+        {
+            Event currentEvent = Event.current;
+
+            if (currentEvent == null)
+            {
+                return false;
+            }
+
+            if (currentEvent.type != EventType.MouseDown || currentEvent.button != 1)
+            {
+                return false;
+            }
+
+            if (!cellRect.Contains(currentEvent.mousePosition) || placementIndex < 0)
+            {
+                return false;
+            }
+
+            selectedPlacementIndex = placementIndex;
+            RemoveSelectedPlacement();
+            currentEvent.Use();
+            return true;
         }
 
         private void DrawBoxListSection()
@@ -596,8 +647,7 @@ namespace FlowBlast.Editor
         private void AddPlacementAtGridCell(int column, int row)
         {
             serializedLevelData.Update();
-            int insertIndex = boxPlacementsProperty.arraySize;
-            boxPlacementsProperty.InsertArrayElementAtIndex(insertIndex);
+            int insertIndex = AppendPlacement();
             selectedPlacementIndex = insertIndex;
             ApplyBrushToPlacement(insertIndex);
             MovePlacementToGridCell(insertIndex, column, row);
@@ -712,7 +762,7 @@ namespace FlowBlast.Editor
             }
 
             serializedLevelData.Update();
-            boxPlacementsProperty.DeleteArrayElementAtIndex(selectedPlacementIndex);
+            RemovePlacementAtIndex(selectedPlacementIndex);
             selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex - 1, -1, boxPlacementsProperty.arraySize - 1);
             serializedLevelData.ApplyModifiedProperties();
             EditorUtility.SetDirty(levelData);
@@ -744,6 +794,63 @@ namespace FlowBlast.Editor
             return boxPlacementsProperty != null ? boxPlacementsProperty.arraySize : 0;
         }
 
+        private int AppendPlacement()
+        {
+            int insertIndex = boxPlacementsProperty.arraySize;
+            boxPlacementsProperty.arraySize++;
+            SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(insertIndex);
+            placementProperty.FindPropertyRelative("localPosition").vector3Value = Vector3.zero;
+            placementProperty.FindPropertyRelative("color").enumValueIndex = (int)BlockColor.Green;
+            placementProperty.FindPropertyRelative("capacity").intValue = GameConstants.DefaultBoxCapacity;
+            placementProperty.FindPropertyRelative("isHidden").boolValue = false;
+            placementProperty.FindPropertyRelative("frozenClearsRequired").intValue = 0;
+            return insertIndex;
+        }
+
+        private void RemovePlacementAtIndex(int placementIndex)
+        {
+            boxPlacementsProperty.DeleteArrayElementAtIndex(placementIndex);
+        }
+
+        private void CleanupDuplicatePlacements()
+        {
+            if (serializedLevelData == null || boxPlacementsProperty == null)
+            {
+                return;
+            }
+
+            serializedLevelData.Update();
+            HashSet<Vector3Int> occupiedCells = new HashSet<Vector3Int>();
+            bool hasRemovedPlacement = false;
+
+            for (int i = boxPlacementsProperty.arraySize - 1; i >= 0; i--)
+            {
+                SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(i);
+                Vector3 localPosition = placementProperty.FindPropertyRelative("localPosition").vector3Value;
+                Vector3 snappedLocalPosition = SnapLocalPosition(localPosition);
+                placementProperty.FindPropertyRelative("localPosition").vector3Value = snappedLocalPosition;
+                Vector3Int cellKey = GetCellKey(snappedLocalPosition);
+
+                if (occupiedCells.Add(cellKey))
+                {
+                    continue;
+                }
+
+                boxPlacementsProperty.DeleteArrayElementAtIndex(i);
+                hasRemovedPlacement = true;
+            }
+
+            if (!hasRemovedPlacement)
+            {
+                serializedLevelData.ApplyModifiedPropertiesWithoutUndo();
+                return;
+            }
+
+            selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex, -1, boxPlacementsProperty.arraySize - 1);
+            serializedLevelData.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(levelData);
+        }
+
         private void RefreshSerializedDataIfNeeded()
         {
             if (levelData == null)
@@ -765,6 +872,100 @@ namespace FlowBlast.Editor
             {
                 EditorGUILayout.PropertyField(property);
             }
+        }
+
+        private void CreateLevelAsset()
+        {
+            EnsureFolder(DefaultLevelFolder);
+            string path = EditorUtility.SaveFilePanelInProject(
+                "Create Level Data",
+                DefaultLevelName,
+                "asset",
+                "Choose save location for the new level data asset.",
+                DefaultLevelFolder);
+
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            LevelData newLevelData = ScriptableObject.CreateInstance<LevelData>();
+            AssetDatabase.CreateAsset(newLevelData, path);
+            AssetDatabase.SaveAssets();
+            Initialize(newLevelData);
+            ApplyDefaultLevelMetadata(path);
+            EditorGUIUtility.PingObject(newLevelData);
+            Selection.activeObject = newLevelData;
+            ShowNotification(new GUIContent($"Created: {newLevelData.name}"));
+        }
+
+        private void LoadSelectedLevel()
+        {
+            if (Selection.activeObject is not LevelData selectedLevelData)
+            {
+                ShowNotification(new GUIContent("Select a LevelData asset first"));
+                return;
+            }
+
+            Initialize(selectedLevelData);
+            EditorGUIUtility.PingObject(selectedLevelData);
+            ShowNotification(new GUIContent($"Loaded: {selectedLevelData.name}"));
+        }
+
+        private void SaveLevel()
+        {
+            if (levelData == null)
+            {
+                ShowNotification(new GUIContent("No level selected"));
+                return;
+            }
+
+            CleanupDuplicatePlacements();
+            serializedLevelData?.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            AssetDatabase.SaveAssets();
+            ShowNotification(new GUIContent($"Saved: {levelData.name}"));
+        }
+
+        private void ApplyDefaultLevelMetadata(string assetPath)
+        {
+            if (levelData == null)
+            {
+                return;
+            }
+
+            SerializedObject serializedObject = new SerializedObject(levelData);
+            SerializedProperty levelIdProperty = serializedObject.FindProperty("levelId");
+
+            if (levelIdProperty == null)
+            {
+                return;
+            }
+
+            serializedObject.Update();
+            levelIdProperty.stringValue = System.IO.Path.GetFileNameWithoutExtension(assetPath);
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(levelData);
+            AssetDatabase.SaveAssets();
+            RefreshSerializedData();
+        }
+
+        private static void EnsureFolder(string path)
+        {
+            if (AssetDatabase.IsValidFolder(path))
+            {
+                return;
+            }
+
+            string parent = System.IO.Path.GetDirectoryName(path)?.Replace("\\", "/");
+            string folderName = System.IO.Path.GetFileName(path);
+
+            if (!string.IsNullOrEmpty(parent) && !AssetDatabase.IsValidFolder(parent))
+            {
+                EnsureFolder(parent);
+            }
+
+            AssetDatabase.CreateFolder(parent, folderName);
         }
 
         private Transform ResolveBoardRoot()
@@ -955,6 +1156,14 @@ namespace FlowBlast.Editor
                 Mathf.Round(localPosition.x * 2f) * 0.5f,
                 Mathf.Round(localPosition.y * 2f) * 0.5f,
                 Mathf.Round(localPosition.z * 2f) * 0.5f);
+        }
+
+        private static Vector3Int GetCellKey(Vector3 localPosition)
+        {
+            return new Vector3Int(
+                Mathf.RoundToInt(localPosition.x * 2f),
+                Mathf.RoundToInt(localPosition.y * 2f),
+                Mathf.RoundToInt(localPosition.z * 2f));
         }
 
         private static Color GetReadableTextColor(Color backgroundColor)
