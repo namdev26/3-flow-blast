@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using FlowBlast.Core.Constants;
 using FlowBlast.Core.Events;
 using FlowBlast.Domain;
 using FlowBlast.Presentation.Box;
@@ -16,20 +15,20 @@ namespace FlowBlast.Presentation
         private BeltFollowerRegistry mainFollowerRegistry;
         private BeltFollowerRegistry boxConveyorFollowerRegistry;
         private IBeltPath boxConveyorPath;
-        private int maxBoxConveyorSlots;
+        private BoxConveyorMovementService boxConveyorMovementService;
 
         public void Initialize(
             IGameEventBus gameEventBus,
             BeltFollowerRegistry mainRegistry,
             BeltFollowerRegistry boxConveyorRegistry,
             IBeltPath conveyorPath,
-            int maxConveyorSlots)
+            BoxConveyorMovementService conveyorMovementService)
         {
             eventBus = gameEventBus;
             mainFollowerRegistry = mainRegistry;
             boxConveyorFollowerRegistry = boxConveyorRegistry;
             boxConveyorPath = conveyorPath;
-            maxBoxConveyorSlots = maxConveyorSlots;
+            boxConveyorMovementService = conveyorMovementService;
 
             eventBus.Subscribe<BoxSentToBeltEvent>(OnBoxSentToBelt);
             eventBus.Subscribe<BoxSentToConveyorEvent>(OnBoxSentToConveyor);
@@ -80,28 +79,27 @@ namespace FlowBlast.Presentation
                 return;
             }
 
-            if (boxConveyorPath == null)
+            if (boxConveyorPath == null || boxConveyorMovementService == null)
             {
                 return;
             }
 
-            float slotDistance = BoxConveyorLayout.GetSlotDistance(
-                gameEvent.SlotIndex,
-                boxConveyorPath.TotalLength,
-                maxBoxConveyorSlots);
-
-            Vector3 targetPosition = boxConveyorPath.GetPositionAtDistance(slotDistance);
-            view.FlyToConveyorTarget(targetPosition, () => OnBoxArrivedAtConveyor(view, slotDistance));
+            int slotIndex = gameEvent.SlotIndex;
+            view.FlyToConveyorTarget(
+                () => boxConveyorPath.GetPositionAtDistance(
+                    boxConveyorMovementService.GetSlotDistance(slotIndex)),
+                () => OnBoxArrivedAtConveyor(view, slotIndex));
         }
 
-        private void OnBoxArrivedAtConveyor(BoxView view, float slotDistance)
+        private void OnBoxArrivedAtConveyor(BoxView view, int slotIndex)
         {
             if (view == null)
             {
                 return;
             }
 
-            view.ActivateOnBoxConveyor(slotDistance);
+            float slotDistance = boxConveyorMovementService.GetSlotDistance(slotIndex);
+            view.BoardOnBoxConveyor(slotIndex, slotDistance);
             boxConveyorFollowerRegistry.Register(view);
         }
 

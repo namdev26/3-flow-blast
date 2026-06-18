@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using FlowBlast.Core.Constants;
 using FlowBlast.Presentation.Box;
 using UnityEngine;
 
@@ -8,17 +9,42 @@ namespace FlowBlast.Services.Belt
     {
         private readonly IBeltPath boxConveyorPath;
         private readonly BeltFollowerRegistry followerRegistry;
+        private readonly int maxSlots;
         private float beltSpeed;
+        private float conveyorPhase;
 
-        public BoxConveyorMovementService(IBeltPath boxConveyorPath, BeltFollowerRegistry followerRegistry)
+        public BoxConveyorMovementService(
+            IBeltPath boxConveyorPath,
+            BeltFollowerRegistry followerRegistry,
+            int maxSlots)
         {
             this.boxConveyorPath = boxConveyorPath;
             this.followerRegistry = followerRegistry;
+            this.maxSlots = maxSlots;
         }
 
         public void SetSpeed(float speed)
         {
             beltSpeed = speed;
+        }
+
+        public void Reset()
+        {
+            conveyorPhase = 0f;
+        }
+
+        public float GetSlotDistance(int slotIndex)
+        {
+            if (boxConveyorPath == null || slotIndex < 0)
+            {
+                return 0f;
+            }
+
+            return BoxConveyorLayout.GetSlotDistance(
+                slotIndex,
+                boxConveyorPath.TotalLength,
+                maxSlots,
+                conveyorPhase);
         }
 
         public void Tick(float deltaTime)
@@ -28,7 +54,9 @@ namespace FlowBlast.Services.Belt
                 return;
             }
 
-            float deltaDistance = beltSpeed * deltaTime;
+            conveyorPhase += beltSpeed * deltaTime;
+            WrapPhase();
+
             IReadOnlyList<IBeltFollower> followers = followerRegistry.GetFollowers();
 
             for (int i = 0; i < followers.Count; i++)
@@ -38,8 +66,18 @@ namespace FlowBlast.Services.Belt
                     continue;
                 }
 
-                float nextDistance = boxView.BeltDistance + deltaDistance;
-                boxView.SetBeltDistance(nextDistance);
+                boxView.SetBeltDistance(GetSlotDistance(boxView.ConveyorSlotIndex));
+            }
+        }
+
+        private void WrapPhase()
+        {
+            float pathLength = boxConveyorPath.TotalLength;
+            conveyorPhase %= pathLength;
+
+            if (conveyorPhase < 0f)
+            {
+                conveyorPhase += pathLength;
             }
         }
     }

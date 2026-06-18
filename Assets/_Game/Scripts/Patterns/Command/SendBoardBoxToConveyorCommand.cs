@@ -6,11 +6,11 @@ namespace FlowBlast.Patterns.Command
 {
     public sealed class SendBoardBoxToConveyorCommand
     {
-        private readonly BeltSlotService boxConveyorSlotService;
+        private readonly BoxConveyorSlotService boxConveyorSlotService;
         private readonly IGameEventBus eventBus;
 
         public SendBoardBoxToConveyorCommand(
-            BeltSlotService boxConveyorSlotService,
+            BoxConveyorSlotService boxConveyorSlotService,
             IGameEventBus eventBus)
         {
             this.boxConveyorSlotService = boxConveyorSlotService;
@@ -39,8 +39,11 @@ namespace FlowBlast.Patterns.Command
                 return false;
             }
 
-            int slotIndex = boxConveyorSlotService.ActiveCount;
-            boxConveyorSlotService.OccupySlot(box);
+            if (!boxConveyorSlotService.TryAcquireSlot(box, out int slotIndex))
+            {
+                return false;
+            }
+
             box.MarkOnBelt();
             box.RevealColor();
             eventBus.Publish(new BoxSentToConveyorEvent(box.Id, box.Color, slotIndex));

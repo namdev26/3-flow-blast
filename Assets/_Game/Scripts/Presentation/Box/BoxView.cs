@@ -25,6 +25,7 @@ namespace FlowBlast.Presentation.Box
         private Transform beltParent;
         private Transform boxConveyorParent;
         private float beltDistance;
+        private int conveyorSlotIndex = -1;
         private bool isActiveOnMainBelt;
         private bool isActiveOnBoxConveyor;
         private bool isFlyingToConveyor;
@@ -36,6 +37,7 @@ namespace FlowBlast.Presentation.Box
 
         public BoxModel Model => model;
         public float BeltDistance => beltDistance;
+        public int ConveyorSlotIndex => conveyorSlotIndex;
         public bool IsActiveOnBelt => isActiveOnMainBelt;
         public bool IsActiveOnBoxConveyor => isActiveOnBoxConveyor;
         public bool IsFlyingToConveyor => isFlyingToConveyor;
@@ -100,6 +102,7 @@ namespace FlowBlast.Presentation.Box
             isFlyingToConveyor = false;
             isActiveOnBoxConveyor = false;
             isActiveOnMainBelt = true;
+            conveyorSlotIndex = -1;
             beltDistance = 0f;
 
             if (beltParent != null)
@@ -117,12 +120,13 @@ namespace FlowBlast.Presentation.Box
             UpdateMainBeltTransform(true);
         }
 
-        public void ActivateOnBoxConveyor(float startDistance)
+        public void BoardOnBoxConveyor(int slotIndex, float slotDistance)
         {
             isFlyingToConveyor = false;
             isActiveOnMainBelt = false;
             isActiveOnBoxConveyor = true;
-            beltDistance = startDistance;
+            conveyorSlotIndex = slotIndex;
+            beltDistance = slotDistance;
 
             if (boxConveyorParent != null)
             {
@@ -130,11 +134,7 @@ namespace FlowBlast.Presentation.Box
             }
 
             RefreshPresentation();
-
-            if (boxConveyorPath != null)
-            {
-                UpdateBoxConveyorTransform();
-            }
+            UpdateBoxConveyorTransform();
         }
 
         public void SetBeltDistance(float distance)
@@ -142,7 +142,7 @@ namespace FlowBlast.Presentation.Box
             beltDistance = distance;
         }
 
-        public void FlyToConveyorTarget(Vector3 worldTarget, Action onComplete)
+        public void FlyToConveyorTarget(Func<Vector3> getTargetPosition, Action onComplete)
         {
             if (flyCoroutine != null)
             {
@@ -150,14 +150,14 @@ namespace FlowBlast.Presentation.Box
             }
 
             flyCoroutine = StartCoroutine(FlyToConveyorRoutine(
-                worldTarget,
+                getTargetPosition,
                 GameConstants.BoxFlyToConveyorDuration,
                 GameConstants.BoxFlyToConveyorArcHeight,
                 onComplete));
         }
 
         private IEnumerator FlyToConveyorRoutine(
-            Vector3 worldTarget,
+            Func<Vector3> getTargetPosition,
             float duration,
             float arcHeight,
             Action onComplete)
@@ -177,7 +177,8 @@ namespace FlowBlast.Presentation.Box
                 elapsed += Time.deltaTime;
                 float normalizedTime = Mathf.Clamp01(elapsed / safeDuration);
                 float smoothTime = normalizedTime * normalizedTime * (3f - 2f * normalizedTime);
-                Vector3 flatPosition = Vector3.Lerp(startPosition, worldTarget, smoothTime);
+                Vector3 currentTarget = getTargetPosition();
+                Vector3 flatPosition = Vector3.Lerp(startPosition, currentTarget, smoothTime);
                 float arcOffset = 4f * arcHeight * smoothTime * (1f - smoothTime);
                 transform.SetPositionAndRotation(
                     flatPosition + Vector3.up * arcOffset,
@@ -186,7 +187,8 @@ namespace FlowBlast.Presentation.Box
                 yield return null;
             }
 
-            transform.SetPositionAndRotation(worldTarget, startRotation);
+            Vector3 landingTarget = getTargetPosition();
+            transform.SetPositionAndRotation(landingTarget, startRotation);
             ApplyBoxVisualScale(targetVisualScale);
             isFlyingToConveyor = false;
             flyCoroutine = null;
@@ -213,6 +215,7 @@ namespace FlowBlast.Presentation.Box
         {
             isActiveOnMainBelt = false;
             isActiveOnBoxConveyor = false;
+            conveyorSlotIndex = -1;
             gameObject.SetActive(false);
         }
 

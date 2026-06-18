@@ -231,14 +231,16 @@ namespace FlowBlast.Bootstrap
             float beltSpeed = levelData != null ? levelData.BeltSpeed : GameConstants.DefaultBeltSpeed;
 
             BeltSlotService beltSlotService = new BeltSlotService(maxSlots);
-            BeltSlotService boxConveyorSlotService = new BeltSlotService(GameConstants.DefaultMaxBoxConveyorSlots);
+            BoxConveyorSlotService boxConveyorSlotService = new BoxConveyorSlotService(
+                GameConstants.DefaultMaxBoxConveyorSlots);
             BoxQueueService boxQueueService = new BoxQueueService();
             BoxRegistryService boxRegistryService = new BoxRegistryService();
             BeltMovementService beltMovementService = new BeltMovementService(beltPath, followerRegistry);
             beltMovementService.SetSpeed(beltSpeed);
             BoxConveyorMovementService boxConveyorMovementService = new BoxConveyorMovementService(
                 boxConveyorPath,
-                boxConveyorFollowerRegistry);
+                boxConveyorFollowerRegistry,
+                GameConstants.DefaultMaxBoxConveyorSlots);
             boxConveyorMovementService.SetSpeed(beltSpeed);
 
             FrozenUnlockStrategy frozenUnlockStrategy = new FrozenUnlockStrategy(eventBus);
@@ -300,7 +302,7 @@ namespace FlowBlast.Bootstrap
                 followerRegistry,
                 boxConveyorFollowerRegistry,
                 boxConveyorPath,
-                GameConstants.DefaultMaxBoxConveyorSlots);
+                boxConveyorMovementService);
 
             return new GameplayContext(
                 eventBus,

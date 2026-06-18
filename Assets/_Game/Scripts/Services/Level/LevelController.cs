@@ -85,6 +85,7 @@ namespace FlowBlast.Services.Level
             boxRegistryService.Clear();
             beltMovementService.SetSpeed(levelData.BeltSpeed);
             boxConveyorMovementService.SetSpeed(levelData.BeltSpeed);
+            boxConveyorMovementService.Reset();
             blockSpawnService.LoadSequence(levelData.BlockSequence);
             BuildBoxQueue(levelData);
         }

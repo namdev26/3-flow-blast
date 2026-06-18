@@ -8,14 +8,14 @@ namespace FlowBlast.Services.Box
     public sealed class BoxBlastService
     {
         private readonly BeltSlotService beltSlotService;
-        private readonly BeltSlotService boxConveyorSlotService;
+        private readonly BoxConveyorSlotService boxConveyorSlotService;
         private readonly BoxRegistryService boxRegistryService;
         private readonly FrozenUnlockStrategy frozenUnlockStrategy;
         private readonly IGameEventBus eventBus;
 
         public BoxBlastService(
             BeltSlotService beltSlotService,
-            BeltSlotService boxConveyorSlotService,
+            BoxConveyorSlotService boxConveyorSlotService,
             BoxRegistryService boxRegistryService,
             FrozenUnlockStrategy frozenUnlockStrategy,
             IGameEventBus eventBus)
