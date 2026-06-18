@@ -13,6 +13,11 @@ namespace FlowBlast.Presentation.Box
 {
     public sealed class BoxView : MonoBehaviour, IBeltFollower
     {
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+        private static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+
         [SerializeField] private MeshRenderer meshRenderer;
         [SerializeField] private Transform fillIndicator;
         [SerializeField] private BlockColorPalette colorPalette;
@@ -40,6 +45,7 @@ namespace FlowBlast.Presentation.Box
         private Vector3 defaultFillScale;
         private Transform boxVisualTransform;
         private Vector3 defaultBoxVisualScale;
+        private MaterialPropertyBlock propertyBlock;
 
         public BoxModel Model => model;
         public float BeltDistance => beltDistance;
@@ -56,6 +62,8 @@ namespace FlowBlast.Presentation.Box
 
         private void Awake()
         {
+            propertyBlock = new MaterialPropertyBlock();
+
             if (meshRenderer != null)
             {
                 boxVisualTransform = meshRenderer.transform;
@@ -107,9 +115,18 @@ namespace FlowBlast.Presentation.Box
 
             IBoxRevealStrategy revealStrategy = revealStrategyResolver.Resolve(model);
             BlockColor displayColor = revealStrategy.GetDisplayColor(model);
-            ApplyColor(displayColor == BlockColor.None
+            Color fallbackColor = displayColor == BlockColor.None
                 ? Color.gray
-                : colorPalette.GetUnityColor(displayColor));
+                : colorPalette.GetUnityColor(displayColor);
+
+            if (model.VisualProfile != null && displayColor != BlockColor.None)
+            {
+                ApplyVisualProfile(model.VisualProfile, fallbackColor);
+            }
+            else
+            {
+                ApplyColor(fallbackColor);
+            }
 
             UpdateFillIndicator();
         }
@@ -250,7 +267,37 @@ namespace FlowBlast.Presentation.Box
                 return;
             }
 
-            meshRenderer.material.color = color;
+            if (propertyBlock == null)
+            {
+                propertyBlock = new MaterialPropertyBlock();
+            }
+
+            meshRenderer.GetPropertyBlock(propertyBlock);
+            propertyBlock.SetColor(BaseColorId, color);
+            propertyBlock.SetColor(ColorId, color);
+            meshRenderer.SetPropertyBlock(propertyBlock);
+        }
+
+        private void ApplyVisualProfile(BoxVisualProfile visualProfile, Color fallbackColor)
+        {
+            if (meshRenderer == null)
+            {
+                return;
+            }
+
+            if (propertyBlock == null)
+            {
+                propertyBlock = new MaterialPropertyBlock();
+            }
+
+            Color tintColor = visualProfile != null ? visualProfile.TintColor : fallbackColor;
+            Texture2D baseTexture = visualProfile != null ? visualProfile.BaseTexture : null;
+            meshRenderer.GetPropertyBlock(propertyBlock);
+            propertyBlock.SetColor(BaseColorId, tintColor);
+            propertyBlock.SetColor(ColorId, tintColor);
+            propertyBlock.SetTexture(BaseMapId, baseTexture);
+            propertyBlock.SetTexture(MainTexId, baseTexture);
+            meshRenderer.SetPropertyBlock(propertyBlock);
         }
 
         private void UpdateFillIndicator()

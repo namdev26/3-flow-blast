@@ -489,6 +489,7 @@ namespace FlowBlast.Editor
             }
 
             EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("color"));
+            EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("visualProfile"));
             EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("capacity"));
             EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("isHidden"));
             EditorGUILayout.PropertyField(placementProperty.FindPropertyRelative("frozenClearsRequired"));

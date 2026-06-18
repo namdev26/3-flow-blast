@@ -9,6 +9,7 @@ namespace FlowBlast.Data
     {
         [SerializeField] private Vector3 localPosition;
         [SerializeField] private BlockColor color = BlockColor.Green;
+        [SerializeField] private BoxVisualProfile visualProfile;
         [SerializeField] private int capacity = GameConstants.DefaultBoxCapacity;
         [SerializeField] private bool isHidden;
         [SerializeField] private int frozenClearsRequired;
@@ -23,6 +24,12 @@ namespace FlowBlast.Data
         {
             get => color;
             set => color = value;
+        }
+
+        public BoxVisualProfile VisualProfile
+        {
+            get => visualProfile;
+            set => visualProfile = value;
         }
 
         public int Capacity
@@ -48,6 +55,7 @@ namespace FlowBlast.Data
             return new BoxDefinition
             {
                 Color = color,
+                VisualProfile = visualProfile,
                 Capacity = Mathf.Max(1, capacity),
                 IsHidden = isHidden,
                 FrozenClearsRequired = Mathf.Max(0, frozenClearsRequired)
@@ -62,6 +70,7 @@ namespace FlowBlast.Data
             }
 
             Color = definition.Color;
+            VisualProfile = definition.VisualProfile;
             Capacity = definition.Capacity;
             IsHidden = definition.IsHidden;
             FrozenClearsRequired = definition.FrozenClearsRequired;

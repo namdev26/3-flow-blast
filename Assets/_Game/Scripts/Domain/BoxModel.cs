@@ -11,6 +11,7 @@ namespace FlowBlast.Domain
 
         public int Id { get; }
         public BlockColor Color { get; }
+        public BoxVisualProfile VisualProfile { get; }
         public int Capacity { get; }
         public int FilledAmount { get; private set; }
         public bool IsHidden { get; }
@@ -26,6 +27,7 @@ namespace FlowBlast.Domain
         {
             Id = id;
             Color = definition.Color;
+            VisualProfile = definition.VisualProfile;
             Capacity = definition.Capacity;
             IsHidden = definition.IsHidden;
             frozenClearsRequired = definition.FrozenClearsRequired;

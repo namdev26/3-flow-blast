@@ -114,6 +114,7 @@ namespace FlowBlast.Editor
             SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
             SerializedProperty colorProperty = placementProperty.FindPropertyRelative("color");
             SerializedProperty capacityProperty = placementProperty.FindPropertyRelative("capacity");
+            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
             SerializedProperty isHiddenProperty = placementProperty.FindPropertyRelative("isHidden");
             SerializedProperty frozenClearsRequiredProperty = placementProperty.FindPropertyRelative("frozenClearsRequired");
             bool isSelected = selectedPlacementIndex == index;
@@ -133,6 +134,7 @@ namespace FlowBlast.Editor
                 }
 
                 EditorGUILayout.PropertyField(localPositionProperty);
+                EditorGUILayout.PropertyField(visualProfileProperty);
                 EditorGUILayout.PropertyField(capacityProperty);
                 EditorGUILayout.PropertyField(isHiddenProperty);
                 EditorGUILayout.PropertyField(frozenClearsRequiredProperty);

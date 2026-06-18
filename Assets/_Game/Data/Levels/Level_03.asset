@@ -10,66 +10,81 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6e27c1bac068d204ba5de11fabefb483, type: 3}
-  m_Name: Level_02
+  m_Name: Level_03
   m_EditorClassIdentifier: 
-  levelId: Level_02
+  levelId: Level_03
   beltSpeed: 2
   maxBeltSlots: 2
   maxBacklogBlocks: 12
   beltLaneCount: 4
   autoBuildBlockSequenceFromBoxes: 1
   boxPlacements:
-  - localPosition: {x: 0, y: 0, z: 0}
-    color: 2
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: -1.5, y: 0, z: 0}
-    color: 1
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: 0}
-    color: 1
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: -1.5, y: 0, z: 1.5}
-    color: 3
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: 1.5}
-    color: 3
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: -1.5, y: 0, z: -1.5}
-    color: 4
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: -1.5}
-    color: 4
-    capacity: 80
-    isHidden: 0
-    frozenClearsRequired: 0
   - localPosition: {x: -3, y: 0, z: 1.5}
     color: 2
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 3, y: 0, z: 1.5}
+  - localPosition: {x: -1.5, y: 0, z: 0}
     color: 2
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 3, y: 0, z: -1.5}
+  - localPosition: {x: 1.5, y: 0, z: -3}
     color: 2
     capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -3, y: 0, z: -1.5}
+  - localPosition: {x: 4.5, y: 0, z: 0}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -3, y: 0, z: 3}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -3, y: 0, z: 4.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -4.5, y: 0, z: 4.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 4.5, y: 0, z: 4.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1.5, y: 0, z: 4.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: 4.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -3, y: 0, z: -3}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1.5, y: 0, z: -4.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 4.5, y: 0, z: -4.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 4.5, y: 0, z: -3}
     color: 2
     capacity: 80
     isHidden: 0
