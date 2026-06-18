@@ -121,6 +121,32 @@ namespace FlowBlast.Services.Belt
             return sampledPositions;
         }
 
+        public float GetClosestDistance(Vector3 worldPosition)
+        {
+            if (sampledPositions.Count == 0)
+            {
+                return 0f;
+            }
+
+            float closestDistance = 0f;
+            float closestSqrDistance = float.MaxValue;
+
+            for (int i = 0; i < sampledPositions.Count; i++)
+            {
+                float sqrDistance = (sampledPositions[i] - worldPosition).sqrMagnitude;
+
+                if (sqrDistance >= closestSqrDistance)
+                {
+                    continue;
+                }
+
+                closestSqrDistance = sqrDistance;
+                closestDistance = arcLengthTable[i].Distance;
+            }
+
+            return closestDistance;
+        }
+
         private void AppendArcLengthEntry(int segmentIndex, float t, Vector3 point)
         {
             if (sampledPositions.Count > 0)

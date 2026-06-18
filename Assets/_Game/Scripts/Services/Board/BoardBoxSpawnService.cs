@@ -1,5 +1,4 @@
-using FlowBlast.Core.Constants;
-using FlowBlast.Core.Enums;
+using System.Collections.Generic;
 using FlowBlast.Data;
 using FlowBlast.Domain;
 using FlowBlast.Patterns.Factory;
@@ -21,48 +20,27 @@ namespace FlowBlast.Services.Board
             this.boardRoot = boardRoot;
         }
 
-        public void SpawnTestBoxes(
-            int count,
+        public void SpawnLevelBoxes(
+            IReadOnlyList<LevelBoxPlacement> boxPlacements,
             BoxRegistryService boxRegistryService,
             BlockColorPalette colorPalette,
             IBeltPath beltPath,
-            Transform beltParent,
-            float cellSpacing)
+            Transform beltParent)
         {
-            if (boardRoot == null || count <= 0)
+            if (boardRoot == null || boxPlacements == null || boxPlacements.Count == 0)
             {
                 return;
             }
 
-            float safeSpacing = Mathf.Max(0.01f, cellSpacing);
-            int spawnCount = Mathf.Min(count, BoardBoxLayout.TestBoxCount);
-
-            for (int i = 0; i < spawnCount; i++)
+            for (int i = 0; i < boxPlacements.Count; i++)
             {
-                BoxDefinition definition = CreateTestDefinition(i);
-                BoxModel model = boxFactory.CreateModel(definition);
-                Vector3 localPosition = BoardBoxLayout.GetLocalSpawnPosition(
-                    i,
-                    BoardBoxLayout.TestBoxColumns,
-                    safeSpacing);
-
-                BoxView view = boxFactory.CreateView(model, boardRoot, localPosition);
+                LevelBoxPlacement boxPlacement = boxPlacements[i];
+                BoxModel model = boxFactory.CreateModel(boxPlacement.CreateDefinition());
+                BoxView view = boxFactory.CreateView(model, boardRoot, boxPlacement.LocalPosition);
                 view.Configure(beltPath, beltParent, colorPalette);
                 view.RefreshPresentation();
-
                 boxRegistryService.Register(model);
             }
-        }
-
-        private static BoxDefinition CreateTestDefinition(int index)
-        {
-            return new BoxDefinition
-            {
-                Color = BoardBoxLayout.GetTestBoxColor(index),
-                Capacity = BoardBoxLayout.TestBoxCapacity,
-                IsHidden = false,
-                FrozenClearsRequired = 0
-            };
         }
     }
 }

@@ -9,6 +9,7 @@ namespace FlowBlast.Core.Constants
         public const string ConveyorRoot = "ConveyorRoot";
         public const string ConveyorBoxVisual = "Convenyor_Box_Visual";
         public const string BoxConveyorPath = "BoxConveyorPath";
+        public const string CollectionPointMarker = "CollectionPointMarker";
         public const string BoardRoot = "BoardRoot";
         public const string BlockPoolParent = "BlockPoolParent";
         public const string BoxQueueParent = "BoxQueueParent";

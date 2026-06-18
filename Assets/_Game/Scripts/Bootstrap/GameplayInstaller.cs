@@ -40,12 +40,12 @@ namespace FlowBlast.Bootstrap
         [Header("Scene References")]
         [SerializeField] private BeltPath beltPath;
         [SerializeField] private BeltPath boxConveyorPath;
+        [SerializeField] private Transform collectionPointMarker;
         [SerializeField] private Transform blockPoolParent;
         [SerializeField] private Transform boxBeltParent;
-        [Header("Board Test")]
+        [Header("Board Level Preview")]
         [SerializeField] private Transform boardRoot;
-        [SerializeField] private bool spawnBoardTestBoxes = true;
-        [SerializeField] private float boardBoxSpacing = BoardBoxLayout.DefaultTestBoxCellSpacing;
+        [SerializeField] private bool spawnBoardLevelBoxesOnPlay = true;
         [SerializeField] private BoxPresentationCoordinator presentationCoordinator;
         [SerializeField] private GameplayLoop gameplayLoop;
         [SerializeField] private TapInputController tapInputController;
@@ -75,7 +75,7 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
-            SpawnBoardTestBoxes();
+            SpawnBoardLevelBoxes();
             RegisterCreatedBoxViews();
             context.LevelController.StartLevel(levelData);
         }
@@ -128,6 +128,7 @@ namespace FlowBlast.Bootstrap
                 }
             }
 
+            collectionPointMarker = ResolveSceneParent(collectionPointMarker, GameplayZoneNames.CollectionPointMarker);
             blockPoolParent = ResolveSceneParent(blockPoolParent, GameplayZoneNames.BlockPoolParent);
             boxBeltParent = ResolveSceneParent(boxBeltParent, GameplayZoneNames.BoxBeltParent);
             boardRoot = ResolveSceneParent(boardRoot, GameplayZoneNames.BoardRoot);
@@ -233,7 +234,10 @@ namespace FlowBlast.Bootstrap
             BoxConveyorSlotService boxConveyorSlotService = new BoxConveyorSlotService(
                 GameConstants.DefaultMaxBoxConveyorSlots);
             BoxRegistryService boxRegistryService = new BoxRegistryService();
-            BeltMovementService beltMovementService = new BeltMovementService(beltPath, followerRegistry);
+            BeltMovementService beltMovementService = new BeltMovementService(
+                beltPath,
+                followerRegistry,
+                collectionPointMarker);
             beltMovementService.SetSpeed(beltSpeed);
             BoxConveyorMovementService boxConveyorMovementService = new BoxConveyorMovementService(
                 boxConveyorPath,
@@ -308,28 +312,25 @@ namespace FlowBlast.Bootstrap
                 boxRegistryService);
         }
 
-        private void SpawnBoardTestBoxes()
+        private void SpawnBoardLevelBoxes()
         {
-            if (!spawnBoardTestBoxes || boardRoot == null || context == null)
+            if (!spawnBoardLevelBoxesOnPlay || boardRoot == null || context == null || levelData == null)
             {
                 return;
             }
 
             BoardBoxSpawnService boardBoxSpawnService = new BoardBoxSpawnService(context.BoxFactory, boardRoot);
-
-            boardBoxSpawnService.SpawnTestBoxes(
-                BoardBoxLayout.TestBoxCount,
+            boardBoxSpawnService.SpawnLevelBoxes(
+                levelData.BoxPlacements,
                 context.BoxRegistryService,
                 colorPalette,
                 beltPath,
-                boxBeltParent,
-                boardBoxSpacing);
+                boxBeltParent);
         }
 
         private void RegisterCreatedBoxViews()
         {
             RegisterBoxViewsUnder(boardRoot);
-            RegisterSceneBoxViewsUnder(transform);
         }
 
         private void RegisterBoxViewsUnder(Transform parent)
@@ -353,36 +354,5 @@ namespace FlowBlast.Bootstrap
             }
         }
 
-        private void RegisterSceneBoxViewsUnder(Transform parent)
-        {
-            if (parent == null || context == null)
-            {
-                return;
-            }
-
-            BoxView[] views = parent.GetComponentsInChildren<BoxView>(true);
-
-            for (int i = 0; i < views.Length; i++)
-            {
-                BoxView view = views[i];
-
-                if (boardRoot != null && view.transform.IsChildOf(boardRoot))
-                {
-                    continue;
-                }
-
-                view.Configure(beltPath, boxBeltParent, colorPalette);
-                view.ConfigureBoxConveyor(boxConveyorPath, boxBeltParent);
-
-                if (view.Model == null)
-                {
-                    BoxModel model = context.BoxFactory.CreateModel(i + 1, view.CreateDefinition());
-                    view.Bind(model);
-                }
-
-                context.BoxRegistryService.Register(view.Model);
-                presentationCoordinator.RegisterView(view);
-            }
-        }
     }
 }

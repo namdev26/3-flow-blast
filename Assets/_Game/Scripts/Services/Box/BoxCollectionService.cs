@@ -74,13 +74,6 @@ namespace FlowBlast.Services.Box
                     continue;
                 }
 
-                float boxDistance = boxConveyorMovementService.GetSlotDistance(slotIndex);
-
-                if (!boxConveyorMovementService.IsNearCollectionPoint(boxDistance))
-                {
-                    continue;
-                }
-
                 if (!box.TryCollect(block.Color))
                 {
                     continue;

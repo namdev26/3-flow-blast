@@ -1,3 +1,4 @@
+using FlowBlast.Core.Constants;
 using FlowBlast.Core.Utilities;
 using UnityEngine;
 
@@ -7,12 +8,17 @@ namespace FlowBlast.Services.Belt
     {
         private readonly IBeltPath beltPath;
         private readonly BeltFollowerRegistry followerRegistry;
+        private readonly Transform collectionPointMarker;
         private float beltSpeed;
 
-        public BeltMovementService(IBeltPath beltPath, BeltFollowerRegistry followerRegistry)
+        public BeltMovementService(
+            IBeltPath beltPath,
+            BeltFollowerRegistry followerRegistry,
+            Transform collectionPointMarker)
         {
             this.beltPath = beltPath;
             this.followerRegistry = followerRegistry;
+            this.collectionPointMarker = collectionPointMarker;
         }
 
         public void SetSpeed(float speed)
@@ -45,10 +51,19 @@ namespace FlowBlast.Services.Belt
 
         public bool IsNearCollectionPoint(float beltDistance)
         {
-            return BeltCollectionUtility.IsNearCollectionPoint(
-                beltDistance,
-                beltPath.TotalLength,
-                beltPath.NormalizeDistance(beltDistance));
+            if (collectionPointMarker == null)
+            {
+                return BeltCollectionUtility.IsNearCollectionPoint(
+                    beltDistance,
+                    beltPath.TotalLength,
+                    beltPath.NormalizeDistance(beltDistance));
+            }
+
+            float collectionPointDistance = beltPath.GetClosestDistance(collectionPointMarker.position);
+            return Mathf.Abs(Mathf.DeltaAngle(
+                beltPath.NormalizeDistance(beltDistance) * 360f,
+                beltPath.NormalizeDistance(collectionPointDistance) * 360f))
+                <= (GameConstants.CollectionDistanceThreshold / Mathf.Max(beltPath.TotalLength, Mathf.Epsilon)) * 360f;
         }
     }
 }

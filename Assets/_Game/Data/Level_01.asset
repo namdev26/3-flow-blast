@@ -17,6 +17,38 @@ MonoBehaviour:
   maxBeltSlots: 2
   maxBacklogBlocks: 120
   beltLaneCount: 4
+  autoBuildBlockSequenceFromBoxes: 1
+  boxPlacements:
+  - localPosition: {x: 0, y: 0, z: 0}
+    color: 1
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0.6, y: 0, z: 0}
+    color: 1
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1.5, y: 0, z: 0}
+    color: 1
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1.5, y: 0, z: -1.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: -1.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1.5, y: 0, z: -1.5}
+    color: 2
+    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
   blockSequence: 020000000200000001000000020000000100000001000000
   boxQueue:
   - Color: 2

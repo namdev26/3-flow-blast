@@ -8,5 +8,6 @@ namespace FlowBlast.Services.Belt
         UnityEngine.Vector3 GetPositionAtDistance(float distance);
         UnityEngine.Quaternion GetRotationAtDistance(float distance);
         float NormalizeDistance(float distance);
+        float GetClosestDistance(UnityEngine.Vector3 worldPosition);
     }
 }

@@ -552,6 +552,37 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FlowBlast.Services.Belt.BeltWaypointMarker
   waypointIndex: 2
+--- !u!1 &1072560082
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1072560083}
+  m_Layer: 0
+  m_Name: CollectionPointMarker
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1072560083
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1072560082}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1371949022}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1142338207
 GameObject:
   m_ObjectHideFlags: 0
@@ -631,6 +662,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1371949022 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4186588756579119666, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+  m_PrefabInstance: {fileID: 1652094674}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1468655227
 GameObject:
   m_ObjectHideFlags: 0
@@ -959,6 +995,10 @@ PrefabInstance:
       propertyPath: boardBoxSpacing
       value: 1.45
       objectReference: {fileID: 0}
+    - target: {fileID: 6296995891337619924, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+      propertyPath: collectionPointMarker
+      value: 
+      objectReference: {fileID: 1072560083}
     - target: {fileID: 6624849981696660555, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
       propertyPath: m_LocalPosition.x
       value: -6
@@ -1026,6 +1066,9 @@ PrefabInstance:
     - {fileID: 3173391559864674559, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
     - {fileID: 6423765151622316534, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
     m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 4186588756579119666, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1072560083}
     - targetCorrespondingSourceObject: {fileID: 7085449494437885916, guid: 1a96d746311d8fc479b95123d6a24b59, type: 3}
       insertIndex: -1
       addedObject: {fileID: 572062153}

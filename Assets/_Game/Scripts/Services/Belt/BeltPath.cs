@@ -114,6 +114,11 @@ namespace FlowBlast.Services.Belt
             return pathSampler.NormalizeDistance(distance);
         }
 
+        public float GetClosestDistance(Vector3 worldPosition)
+        {
+            return pathSampler.GetClosestDistance(worldPosition);
+        }
+
         private bool HasValidPath()
         {
             return waypoints != null && waypoints.Length >= 2;
