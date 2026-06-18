@@ -133,8 +133,7 @@ namespace FlowBlast.Presentation.Box
 
             if (boxConveyorPath != null)
             {
-                smoothedRotation = boxConveyorPath.GetRotationAtDistance(beltDistance);
-                UpdateBoxConveyorTransform(true);
+                UpdateBoxConveyorTransform();
             }
         }
 
@@ -165,6 +164,7 @@ namespace FlowBlast.Presentation.Box
         {
             isFlyingToConveyor = true;
             Vector3 startPosition = transform.position;
+            Quaternion startRotation = transform.rotation;
             Vector3 startVisualScale = GetBoardVisualScale();
             Vector3 targetVisualScale = GetConveyorVisualScale();
             ApplyBoxVisualScale(startVisualScale);
@@ -179,12 +179,14 @@ namespace FlowBlast.Presentation.Box
                 float smoothTime = normalizedTime * normalizedTime * (3f - 2f * normalizedTime);
                 Vector3 flatPosition = Vector3.Lerp(startPosition, worldTarget, smoothTime);
                 float arcOffset = 4f * arcHeight * smoothTime * (1f - smoothTime);
-                transform.position = flatPosition + Vector3.up * arcOffset;
+                transform.SetPositionAndRotation(
+                    flatPosition + Vector3.up * arcOffset,
+                    startRotation);
                 ApplyBoxVisualScale(Vector3.Lerp(startVisualScale, targetVisualScale, smoothTime));
                 yield return null;
             }
 
-            transform.position = worldTarget;
+            transform.SetPositionAndRotation(worldTarget, startRotation);
             ApplyBoxVisualScale(targetVisualScale);
             isFlyingToConveyor = false;
             flyCoroutine = null;
@@ -195,7 +197,7 @@ namespace FlowBlast.Presentation.Box
         {
             if (isActiveOnBoxConveyor)
             {
-                UpdateBoxConveyorTransform(false);
+                UpdateBoxConveyorTransform();
                 return;
             }
 
@@ -249,15 +251,12 @@ namespace FlowBlast.Presentation.Box
                 snapRotation);
         }
 
-        private void UpdateBoxConveyorTransform(bool snapRotation)
+        private void UpdateBoxConveyorTransform()
         {
-            BeltFollowerTransformUtility.ApplyPathTransform(
+            BeltFollowerTransformUtility.ApplyPathPositionOnly(
                 transform,
                 boxConveyorPath,
-                beltDistance,
-                ref smoothedRotation,
-                Time.deltaTime,
-                snapRotation);
+                beltDistance);
         }
 
         private Vector3 GetBoardVisualScale()

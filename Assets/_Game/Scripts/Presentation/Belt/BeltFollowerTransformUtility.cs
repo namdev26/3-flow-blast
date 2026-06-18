@@ -77,5 +77,18 @@ namespace FlowBlast.Presentation.Belt
 
             targetTransform.SetPositionAndRotation(lanePosition, smoothedRotation);
         }
+
+        public static void ApplyPathPositionOnly(
+            Transform targetTransform,
+            IBeltPath beltPath,
+            float beltDistance)
+        {
+            if (beltPath == null)
+            {
+                return;
+            }
+
+            targetTransform.position = beltPath.GetPositionAtDistance(beltDistance);
+        }
     }
 }
