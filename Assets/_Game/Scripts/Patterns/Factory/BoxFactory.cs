@@ -9,32 +9,36 @@ namespace FlowBlast.Patterns.Factory
     public sealed class BoxFactory : IBoxFactory
     {
         private readonly BoxView prefab;
-        private readonly Transform queueParent;
         private readonly Transform beltParent;
         private int nextId;
 
-        public BoxFactory(BoxView prefab, Transform queueParent, Transform beltParent)
+        public BoxFactory(BoxView prefab, Transform beltParent)
         {
             this.prefab = prefab;
-            this.queueParent = queueParent;
             this.beltParent = beltParent;
         }
 
         public BoxModel CreateModel(BoxDefinition definition)
         {
             nextId++;
+            return CreateModel(nextId, definition);
+        }
+
+        public BoxModel CreateModel(int id, BoxDefinition definition)
+        {
+            nextId = Mathf.Max(nextId, id);
             BoxStateMachine stateMachine = BoxStateMachineFactory.Create();
-            return new BoxModel(nextId, definition, stateMachine);
+            return new BoxModel(id, definition, stateMachine);
         }
 
         public BoxView CreateView(BoxModel model)
         {
-            return CreateView(model, queueParent, Vector3.zero);
+            return CreateView(model, beltParent, Vector3.zero);
         }
 
         public BoxView CreateView(BoxModel model, Transform parent, Vector3 localPosition)
         {
-            Transform spawnParent = parent != null ? parent : queueParent;
+            Transform spawnParent = parent != null ? parent : beltParent;
             BoxView view = Object.Instantiate(prefab, spawnParent);
             view.transform.localPosition = localPosition;
             view.Bind(model);

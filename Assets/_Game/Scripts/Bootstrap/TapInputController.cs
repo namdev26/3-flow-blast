@@ -42,12 +42,7 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
-            if (TryHandleBoardBoxClick())
-            {
-                return;
-            }
-
-            context.LevelController.TrySendFrontBoxToBelt();
+            TryHandleBoardBoxClick();
         }
 
         private bool TryHandleBoardBoxClick()

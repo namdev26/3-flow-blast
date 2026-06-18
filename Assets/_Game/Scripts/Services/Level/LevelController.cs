@@ -3,7 +3,6 @@ using FlowBlast.Core.Events;
 using FlowBlast.Data;
 using FlowBlast.Domain;
 using FlowBlast.Patterns.Command;
-using FlowBlast.Patterns.Factory;
 using FlowBlast.Presentation.Box;
 using FlowBlast.Services.Block;
 using FlowBlast.Services.Box;
@@ -15,15 +14,12 @@ namespace FlowBlast.Services.Level
     {
         private readonly IGameEventBus eventBus;
         private readonly ILevelRepository levelRepository;
-        private readonly BoxFactory boxFactory;
-        private readonly BoxQueueService boxQueueService;
         private readonly BoxRegistryService boxRegistryService;
         private readonly BeltMovementService beltMovementService;
         private readonly BoxConveyorMovementService boxConveyorMovementService;
         private readonly BlockSpawnService blockSpawnService;
         private readonly WinConditionEvaluator winConditionEvaluator;
         private readonly LoseConditionEvaluator loseConditionEvaluator;
-        private readonly SendBoxToBeltCommand sendBoxToBeltCommand;
         private readonly SendBoardBoxToConveyorCommand sendBoardBoxToConveyorCommand;
 
         private LevelData currentLevel;
@@ -34,28 +30,22 @@ namespace FlowBlast.Services.Level
         public LevelController(
             IGameEventBus eventBus,
             ILevelRepository levelRepository,
-            BoxFactory boxFactory,
-            BoxQueueService boxQueueService,
             BoxRegistryService boxRegistryService,
             BeltMovementService beltMovementService,
             BoxConveyorMovementService boxConveyorMovementService,
             BlockSpawnService blockSpawnService,
             WinConditionEvaluator winConditionEvaluator,
             LoseConditionEvaluator loseConditionEvaluator,
-            SendBoxToBeltCommand sendBoxToBeltCommand,
             SendBoardBoxToConveyorCommand sendBoardBoxToConveyorCommand)
         {
             this.eventBus = eventBus;
             this.levelRepository = levelRepository;
-            this.boxFactory = boxFactory;
-            this.boxQueueService = boxQueueService;
             this.boxRegistryService = boxRegistryService;
             this.beltMovementService = beltMovementService;
             this.boxConveyorMovementService = boxConveyorMovementService;
             this.blockSpawnService = blockSpawnService;
             this.winConditionEvaluator = winConditionEvaluator;
             this.loseConditionEvaluator = loseConditionEvaluator;
-            this.sendBoxToBeltCommand = sendBoxToBeltCommand;
             this.sendBoardBoxToConveyorCommand = sendBoardBoxToConveyorCommand;
 
             eventBus.Subscribe<BoxBlastedEvent>(OnBoxBlasted);
@@ -80,14 +70,12 @@ namespace FlowBlast.Services.Level
             currentLevel = levelData;
             currentPhase = GamePhase.Playing;
             completedBoxCount = 0;
-            requiredBoxCount = levelData.BoxQueue.Count;
+            requiredBoxCount = boxRegistryService.GetAllBoxes().Count;
 
-            boxRegistryService.Clear();
             beltMovementService.SetSpeed(levelData.BeltSpeed);
             boxConveyorMovementService.SetSpeed(levelData.BeltSpeed);
             boxConveyorMovementService.Reset();
             blockSpawnService.LoadSequence(levelData.BlockSequence);
-            BuildBoxQueue(levelData);
         }
 
         public void Tick(float deltaTime)
@@ -104,22 +92,6 @@ namespace FlowBlast.Services.Level
             EvaluateEndConditions();
         }
 
-        public bool TrySendFrontBoxToBelt()
-        {
-            if (currentPhase != GamePhase.Playing)
-            {
-                return false;
-            }
-
-            if (!sendBoxToBeltCommand.CanExecute())
-            {
-                return false;
-            }
-
-            sendBoxToBeltCommand.Execute();
-            return true;
-        }
-
         public bool TrySendBoardBoxToConveyor(BoxModel box)
         {
             if (currentPhase != GamePhase.Playing)
@@ -128,19 +100,6 @@ namespace FlowBlast.Services.Level
             }
 
             return sendBoardBoxToConveyorCommand.Execute(box);
-        }
-
-        private void BuildBoxQueue(LevelData levelData)
-        {
-            for (int i = 0; i < levelData.BoxQueue.Count; i++)
-            {
-                BoxModel model = boxFactory.CreateModel(levelData.BoxQueue[i]);
-                BoxView view = boxFactory.CreateView(model);
-
-                boxRegistryService.Register(model);
-                boxQueueService.Enqueue(model);
-                view.RefreshPresentation();
-            }
         }
 
         private void OnBoxBlasted(BoxBlastedEvent gameEvent)

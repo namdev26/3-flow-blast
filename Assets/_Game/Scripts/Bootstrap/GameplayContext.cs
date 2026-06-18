@@ -1,5 +1,4 @@
 using FlowBlast.Core.Events;
-using FlowBlast.Patterns.Command;
 using FlowBlast.Patterns.Factory;
 using FlowBlast.Presentation;
 using FlowBlast.Services.Belt;
@@ -12,7 +11,6 @@ namespace FlowBlast.Bootstrap
     {
         public IGameEventBus EventBus { get; }
         public LevelController LevelController { get; }
-        public SendBoxToBeltCommand SendBoxToBeltCommand { get; }
         public BeltFollowerRegistry FollowerRegistry { get; }
         public BoxPresentationCoordinator PresentationCoordinator { get; }
         public BoxFactory BoxFactory { get; }
@@ -21,7 +19,6 @@ namespace FlowBlast.Bootstrap
         public GameplayContext(
             IGameEventBus eventBus,
             LevelController levelController,
-            SendBoxToBeltCommand sendBoxToBeltCommand,
             BeltFollowerRegistry followerRegistry,
             BoxPresentationCoordinator presentationCoordinator,
             BoxFactory boxFactory,
@@ -29,7 +26,6 @@ namespace FlowBlast.Bootstrap
         {
             EventBus = eventBus;
             LevelController = levelController;
-            SendBoxToBeltCommand = sendBoxToBeltCommand;
             FollowerRegistry = followerRegistry;
             PresentationCoordinator = presentationCoordinator;
             BoxFactory = boxFactory;

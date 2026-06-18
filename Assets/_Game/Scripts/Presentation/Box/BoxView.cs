@@ -17,6 +17,12 @@ namespace FlowBlast.Presentation.Box
         [SerializeField] private Transform fillIndicator;
         [SerializeField] private BlockColorPalette colorPalette;
 
+        [Header("Box Data")]
+        [SerializeField] private BlockColor boxColor = BlockColor.Green;
+        [SerializeField] private int capacity = GameConstants.DefaultBoxCapacity;
+        [SerializeField] private bool isHidden;
+        [SerializeField] private int frozenClearsRequired;
+
         private readonly BoxRevealStrategyResolver revealStrategyResolver = new BoxRevealStrategyResolver();
 
         private BoxModel model;
@@ -73,6 +79,17 @@ namespace FlowBlast.Presentation.Box
         {
             boxConveyorPath = path;
             boxConveyorParent = parent;
+        }
+
+        public BoxDefinition CreateDefinition()
+        {
+            return new BoxDefinition
+            {
+                Color = boxColor,
+                Capacity = capacity,
+                IsHidden = isHidden,
+                FrozenClearsRequired = frozenClearsRequired
+            };
         }
 
         public void Bind(BoxModel boxModel)
