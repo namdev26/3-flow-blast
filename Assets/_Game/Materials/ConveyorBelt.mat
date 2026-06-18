@@ -28,7 +28,7 @@ Material:
     - _PathHalfLength: 1.48
     - _PathRadius: 1.24
     - _ScrollSpeed: 1
-    - _SlatContrast: 0.5
+    - _SlatContrast: 0.1
     - _SlatRepeat: 7
     m_Colors:
     - _BaseColor: {r: 0.72, g: 0.75, b: 0.8, a: 1}
