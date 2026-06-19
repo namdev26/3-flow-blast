@@ -365,6 +365,11 @@ namespace FlowBlast.Editor
                     BuildSequenceRegionsFromBoxes();
                 }
 
+                if (GUILayout.Button("Clear All Region Colors", GUILayout.Width(156f)))
+                {
+                    ClearAllRegionColors();
+                }
+
                 if (GUILayout.Button("Reset View", GUILayout.Width(92f)))
                 {
                     sequenceCanvasZoom = 42f;
@@ -822,7 +827,7 @@ namespace FlowBlast.Editor
             }
         }
 
-        private void DrawVisualProfileButton(bool isSelected, Color color, string label, System.Action onClick, string tooltip)
+        private void DrawVisualProfileButton(bool isSelected, Color color, string label, System.Action onClick, string tooltip, bool isEnabled = true, bool showLockedX = false)
         {
             GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
             {
@@ -835,13 +840,170 @@ namespace FlowBlast.Editor
                 GUILayout.Width(VisualPaletteButtonSize),
                 GUILayout.Height(VisualPaletteButtonSize));
 
-            if (GUI.Button(buttonRect, new GUIContent(string.Empty, $"{label}\n{tooltip}"), buttonStyle))
+            using (new EditorGUI.DisabledScope(!isEnabled))
             {
-                onClick?.Invoke();
+                if (GUI.Button(buttonRect, new GUIContent(string.Empty, $"{label}\n{tooltip}"), buttonStyle))
+                {
+                    onClick?.Invoke();
+                }
             }
 
-            EditorGUI.DrawRect(new Rect(buttonRect.x + 3f, buttonRect.y + 3f, buttonRect.width - 6f, buttonRect.height - 6f), color);
+            Color previewColor = isEnabled ? color : Color.Lerp(color, Color.black, 0.6f);
+            EditorGUI.DrawRect(new Rect(buttonRect.x + 3f, buttonRect.y + 3f, buttonRect.width - 6f, buttonRect.height - 6f), previewColor);
             DrawCellOutline(buttonRect, isSelected ? Color.white : Color.black);
+
+            if (showLockedX)
+            {
+                Handles.BeginGUI();
+                Handles.color = Color.white;
+                Handles.DrawAAPolyLine(3f, new Vector3(buttonRect.x + 5f, buttonRect.y + 5f), new Vector3(buttonRect.xMax - 5f, buttonRect.yMax - 5f));
+                Handles.DrawAAPolyLine(3f, new Vector3(buttonRect.xMax - 5f, buttonRect.y + 5f), new Vector3(buttonRect.x + 5f, buttonRect.yMax - 5f));
+                Handles.EndGUI();
+            }
+        }
+
+        private void DrawBoxPlacementVisualPalette(
+            BoxVisualProfile selectedProfile,
+            System.Action<BoxVisualProfile> onSelected,
+            bool allowNone,
+            string tooltip)
+        {
+            List<BoxVisualProfile> boxProfiles = GetBoxPlacementVisualProfiles();
+            Dictionary<BoxVisualProfile, int> boxProfileCapacities = GetBoxProfileCapacities();
+            Dictionary<BoxVisualProfile, int> assignedRegionCounts = GetAssignedRegionCounts();
+            int buttonCount = allowNone ? boxProfiles.Count + 1 : boxProfiles.Count;
+
+            if (buttonCount == 0)
+            {
+                EditorGUILayout.HelpBox("No box colors found. Assign VisualProfile to boxes first.", MessageType.Info);
+                return;
+            }
+
+            int columns = 4;
+            int index = 0;
+
+            while (index < buttonCount)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    for (int column = 0; column < columns; column++)
+                    {
+                        if (index >= buttonCount)
+                        {
+                            GUILayout.Space(VisualPaletteButtonSize + 4f);
+                            continue;
+                        }
+
+                        if (allowNone && index == 0)
+                        {
+                            DrawVisualProfileButton(selectedProfile == null, Color.gray, "None", () => onSelected?.Invoke(null), tooltip, true);
+                            index++;
+                            continue;
+                        }
+
+                        int profileIndex = allowNone ? index - 1 : index;
+                        BoxVisualProfile profile = boxProfiles[profileIndex];
+                        bool isSelected = selectedProfile == profile;
+                        int capacity = boxProfileCapacities.TryGetValue(profile, out int maxCount) ? maxCount : 0;
+                        int assigned = assignedRegionCounts.TryGetValue(profile, out int currentCount) ? currentCount : 0;
+                        bool canSelect = isSelected || assigned < capacity;
+                        bool showLockedX = !canSelect;
+                        DrawVisualProfileButton(
+                            isSelected,
+                            profile.TintColor,
+                            $"{profile.name} ({assigned}/{capacity})",
+                            () => onSelected?.Invoke(profile),
+                            tooltip,
+                            canSelect,
+                            showLockedX);
+                        index++;
+                    }
+                }
+            }
+        }
+
+        private List<BoxVisualProfile> GetBoxPlacementVisualProfiles()
+        {
+            List<BoxVisualProfile> result = new List<BoxVisualProfile>();
+            HashSet<BoxVisualProfile> uniqueProfiles = new HashSet<BoxVisualProfile>();
+
+            if (boxPlacementsProperty == null)
+            {
+                return result;
+            }
+
+            for (int placementIndex = 0; placementIndex < boxPlacementsProperty.arraySize; placementIndex++)
+            {
+                SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(placementIndex);
+                SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
+                BoxVisualProfile profile = visualProfileProperty?.objectReferenceValue as BoxVisualProfile;
+
+                if (profile == null || !uniqueProfiles.Add(profile))
+                {
+                    continue;
+                }
+
+                result.Add(profile);
+            }
+
+            result.Sort((left, right) => string.CompareOrdinal(left.name, right.name));
+            return result;
+        }
+
+        private Dictionary<BoxVisualProfile, int> GetBoxProfileCapacities()
+        {
+            Dictionary<BoxVisualProfile, int> result = new Dictionary<BoxVisualProfile, int>();
+
+            if (boxPlacementsProperty == null)
+            {
+                return result;
+            }
+
+            for (int placementIndex = 0; placementIndex < boxPlacementsProperty.arraySize; placementIndex++)
+            {
+                SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(placementIndex);
+                SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
+                BoxVisualProfile profile = visualProfileProperty?.objectReferenceValue as BoxVisualProfile;
+
+                if (profile == null)
+                {
+                    continue;
+                }
+
+                if (!result.ContainsKey(profile))
+                {
+                    result.Add(profile, 0);
+                }
+
+                result[profile]++;
+            }
+
+            return result;
+        }
+
+        private Dictionary<BoxVisualProfile, int> GetAssignedRegionCounts()
+        {
+            Dictionary<BoxVisualProfile, int> result = new Dictionary<BoxVisualProfile, int>();
+            int regionCount = GetSequenceRegionCount();
+
+            for (int regionIndex = 0; regionIndex < regionCount; regionIndex++)
+            {
+                BoxVisualProfile profile = GetSequenceRegionProfile(regionIndex);
+
+                if (profile == null)
+                {
+                    continue;
+                }
+
+                if (!result.ContainsKey(profile))
+                {
+                    result.Add(profile, 0);
+                }
+
+                result[profile]++;
+            }
+
+            return result;
         }
 
         private List<BoxVisualProfile> GetVisualProfiles(bool hideUsedInSequence = false, BoxVisualProfile selectedProfile = null)
@@ -1523,13 +1685,9 @@ namespace FlowBlast.Editor
                 EditorGUILayout.LabelField($"Selected Region {selectedSequenceRegionIndex + 1}", EditorStyles.boldLabel);
                 BoxVisualProfile selectedRegionProfile = GetSequenceRegionProfile(selectedSequenceRegionIndex);
                 DrawInlineColorPreview(selectedRegionProfile != null ? selectedRegionProfile.TintColor : Color.gray);
-                EditorGUILayout.LabelField($"Region Size: {SequenceRegionBlockCount} blocks", EditorStyles.miniLabel);
-                DrawVisualProfilePalette(
-                    selectedRegionProfile,
-                    FillSequenceRegion,
-                    true,
-                    "Fill selected region",
-                    false);
+                EditorGUILayout.LabelField("Region color is sourced from current box colors.", EditorStyles.miniLabel);
+                EditorGUILayout.LabelField("Locked when box count for that color is fully used.", EditorStyles.miniLabel);
+                DrawBoxPlacementVisualPalette(selectedRegionProfile, FillSequenceRegion, true, "Fill selected region from box colors");
             }
         }
 
@@ -1893,8 +2051,13 @@ namespace FlowBlast.Editor
                 && hitRect.Contains(Event.current.mousePosition))
             {
                 selectedSequenceRegionIndex = Mathf.Clamp(regionIndex, 0, Mathf.Max(0, GetSequenceRegionCount() - 1));
+                BoxVisualProfile currentRegionProfile = GetSequenceRegionProfile(selectedSequenceRegionIndex);
 
-                if (brushVisualProfile != null)
+                if (currentRegionProfile != null)
+                {
+                    ClearSelectedRegionColor();
+                }
+                else if (brushVisualProfile != null)
                 {
                     FillSequenceRegion(brushVisualProfile);
                 }
@@ -1929,6 +2092,50 @@ namespace FlowBlast.Editor
                 SerializedProperty itemProperty = blockSequenceItemsProperty.GetArrayElementAtIndex(itemIndex);
                 SerializedProperty visualProfileProperty = itemProperty.FindPropertyRelative("visualProfile");
                 visualProfileProperty.objectReferenceValue = visualProfile;
+            }
+
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private void ClearSelectedRegionColor()
+        {
+            if (blockSequenceItemsProperty == null)
+            {
+                return;
+            }
+
+            int regionStartIndex = GetSequenceRegionStartIndex(selectedSequenceRegionIndex);
+            int regionEndExclusive = Mathf.Min(regionStartIndex + SequenceRegionBlockCount, blockSequenceItemsProperty.arraySize);
+            serializedLevelData.Update();
+
+            for (int itemIndex = regionStartIndex; itemIndex < regionEndExclusive; itemIndex++)
+            {
+                SerializedProperty itemProperty = blockSequenceItemsProperty.GetArrayElementAtIndex(itemIndex);
+                SerializedProperty visualProfileProperty = itemProperty.FindPropertyRelative("visualProfile");
+                visualProfileProperty.objectReferenceValue = null;
+            }
+
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private void ClearAllRegionColors()
+        {
+            if (blockSequenceItemsProperty == null)
+            {
+                return;
+            }
+
+            serializedLevelData.Update();
+
+            for (int itemIndex = 0; itemIndex < blockSequenceItemsProperty.arraySize; itemIndex++)
+            {
+                SerializedProperty itemProperty = blockSequenceItemsProperty.GetArrayElementAtIndex(itemIndex);
+                SerializedProperty visualProfileProperty = itemProperty.FindPropertyRelative("visualProfile");
+                visualProfileProperty.objectReferenceValue = null;
             }
 
             serializedLevelData.ApplyModifiedProperties();
