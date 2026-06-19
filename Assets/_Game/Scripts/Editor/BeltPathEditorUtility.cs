@@ -312,7 +312,7 @@ namespace FlowBlast.Editor
                 }
             }
 
-            sampler.Rebuild(points, beltPath.IsClosedLoop);
+            sampler.Rebuild(points, beltPath.IsClosedLoop, beltPath.CurveStrength);
             return sampler;
         }
 

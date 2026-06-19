@@ -20,6 +20,7 @@ namespace FlowBlast.Data
             beltPath.ApplyLocalWaypoints(
                 layout.WaypointLocalPositions,
                 layout.IsClosedLoop,
+                layout.CurveStrength,
                 waypointPrefab);
 
             if (boxQueueParent != null)
@@ -45,7 +46,7 @@ namespace FlowBlast.Data
                 ? boxQueueParent.localPosition
                 : Vector3.zero;
 
-            layout.SetLayoutData(localPositions, beltPath.IsClosedLoop, queueLocalPosition);
+            layout.SetLayoutData(localPositions, beltPath.IsClosedLoop, queueLocalPosition, beltPath.CurveStrength);
         }
     }
 }

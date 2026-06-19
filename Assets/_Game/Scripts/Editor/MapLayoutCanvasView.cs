@@ -174,7 +174,7 @@ namespace FlowBlast.Editor
         {
             CatmullRomPathSampler sampler = new CatmullRomPathSampler();
             List<Vector3> points = new List<Vector3>(editState.WaypointLocalPositions);
-            sampler.Rebuild(points, editState.IsClosedLoop);
+            sampler.Rebuild(points, editState.IsClosedLoop, editState.CurveStrength);
 
             float pathLength = sampler.TotalLength;
 

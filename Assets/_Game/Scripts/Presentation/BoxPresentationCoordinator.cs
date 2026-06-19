@@ -73,6 +73,7 @@ namespace FlowBlast.Presentation
                 return;
             }
 
+            boxConveyorFollowerRegistry.Unregister(view);
             view.MoveToBelt();
             mainFollowerRegistry.Register(view);
         }
@@ -89,6 +90,7 @@ namespace FlowBlast.Presentation
                 return;
             }
 
+            mainFollowerRegistry.Unregister(view);
             int slotIndex = gameEvent.SlotIndex;
             view.FlyToConveyorTarget(
                 () => boxConveyorPath.GetPositionAtDistance(

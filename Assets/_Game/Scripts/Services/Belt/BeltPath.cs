@@ -7,6 +7,7 @@ namespace FlowBlast.Services.Belt
     {
         [SerializeField] private Transform[] waypoints = new Transform[0];
         [SerializeField] private bool isClosedLoop = true;
+        [SerializeField, Range(0f, 1f)] private float curveStrength = 1f;
 
         private readonly CatmullRomPathSampler pathSampler = new CatmullRomPathSampler();
         private readonly List<Vector3> controlPointsBuffer = new List<Vector3>();
@@ -14,15 +15,18 @@ namespace FlowBlast.Services.Belt
 
         public float TotalLength => pathSampler.TotalLength;
         public bool IsClosedLoop => isClosedLoop;
+        public float CurveStrength => curveStrength;
         public Transform[] Waypoints => waypoints;
 
         public void ApplyLocalWaypoints(
             IReadOnlyList<Vector3> localPositions,
             bool closedLoop,
+            float curveStrength,
             BeltWaypointMarker waypointPrefab)
         {
             ClearWaypoints();
             isClosedLoop = closedLoop;
+            this.curveStrength = Mathf.Clamp01(curveStrength);
 
             if (localPositions == null || localPositions.Count == 0)
             {
@@ -130,7 +134,7 @@ namespace FlowBlast.Services.Belt
 
             if (!HasValidPath())
             {
-                pathSampler.Rebuild(controlPointsBuffer, isClosedLoop);
+                pathSampler.Rebuild(controlPointsBuffer, isClosedLoop, curveStrength);
                 return;
             }
 
@@ -144,7 +148,7 @@ namespace FlowBlast.Services.Belt
                 controlPointsBuffer.Add(waypoints[i].position);
             }
 
-            pathSampler.Rebuild(controlPointsBuffer, isClosedLoop);
+            pathSampler.Rebuild(controlPointsBuffer, isClosedLoop, curveStrength);
             CacheWaypointPositions();
         }
 

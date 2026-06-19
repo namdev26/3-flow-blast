@@ -20,3 +20,4 @@ MonoBehaviour:
   - {x: 4, y: 0, z: 4}
   - {x: 4, y: 0, z: -0}
   boxQueueLocalPosition: {x: -6, y: 0, z: 6}
+  curveStrength: 1

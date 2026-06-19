@@ -38,6 +38,7 @@ namespace FlowBlast.Bootstrap
         [SerializeField] private BoxView boxPrefab;
 
         [Header("Scene References")]
+        [SerializeField] private MapLayoutBinder mapLayoutBinder;
         [SerializeField] private BeltPath beltPath;
         [SerializeField] private BeltPath boxConveyorPath;
         [SerializeField] private Transform collectionPointMarker;
@@ -57,6 +58,7 @@ namespace FlowBlast.Bootstrap
         private void Awake()
         {
             ResolveMissingReferences();
+            ApplyMapLayoutAtRuntime();
 
             if (!ValidateReferences())
             {
@@ -78,6 +80,47 @@ namespace FlowBlast.Bootstrap
             SpawnBoardLevelBoxes();
             RegisterCreatedBoxViews();
             context.LevelController.StartLevel(levelData);
+        }
+
+        private void EnsureBoxConveyorPathReady()
+        {
+            if (boxConveyorPath == null || boxConveyorPath.Waypoints.Length >= 2)
+            {
+                return;
+            }
+
+            Transform[] boxWaypoints = new Transform[BoxConveyorLayout.DefaultOvalWaypointLocalPositions.Length];
+
+            for (int i = 0; i < BoxConveyorLayout.DefaultOvalWaypointLocalPositions.Length; i++)
+            {
+                GameObject waypointObject = new GameObject($"BoxConveyorWaypoint_{i}");
+                waypointObject.transform.SetParent(boxConveyorPath.transform, false);
+                waypointObject.transform.localPosition = BoxConveyorLayout.DefaultOvalWaypointLocalPositions[i];
+                boxWaypoints[i] = waypointObject.transform;
+            }
+
+            SerializedObject serializedPath = new SerializedObject(boxConveyorPath);
+            SerializedProperty waypointProperty = serializedPath.FindProperty("waypoints");
+            waypointProperty.arraySize = boxWaypoints.Length;
+
+            for (int i = 0; i < boxWaypoints.Length; i++)
+            {
+                waypointProperty.GetArrayElementAtIndex(i).objectReferenceValue = boxWaypoints[i];
+            }
+
+            serializedPath.ApplyModifiedPropertiesWithoutUndo();
+            boxConveyorPath.EnsureInitialized();
+        }
+
+        private void ApplyMapLayoutAtRuntime()
+        {
+            if (mapLayoutBinder == null)
+            {
+                return;
+            }
+
+            mapLayoutBinder.ApplyLayout();
+            EnsureBoxConveyorPathReady();
         }
 
         private void ResolveMissingReferences()
@@ -103,6 +146,11 @@ namespace FlowBlast.Bootstrap
                 boxPrefab = AssetDatabase.LoadAssetAtPath<BoxView>(DefaultBoxPrefabPath);
             }
 #endif
+
+            if (mapLayoutBinder == null)
+            {
+                mapLayoutBinder = GetComponent<MapLayoutBinder>();
+            }
 
             if (beltPath == null)
             {

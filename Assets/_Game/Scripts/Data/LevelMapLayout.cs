@@ -11,16 +11,19 @@ namespace FlowBlast.Data
         [SerializeField] private bool isClosedLoop = true;
         [SerializeField] private List<Vector3> waypointLocalPositions = new List<Vector3>();
         [SerializeField] private Vector3 boxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
+        [SerializeField] private float curveStrength = 1f;
 
         public string LayoutId => layoutId;
         public bool IsClosedLoop => isClosedLoop;
         public IReadOnlyList<Vector3> WaypointLocalPositions => waypointLocalPositions;
         public Vector3 BoxQueueLocalPosition => boxQueueLocalPosition;
+        public float CurveStrength => curveStrength;
 
         public void SetLayoutData(
             IReadOnlyList<Vector3> localPositions,
             bool closedLoop,
-            Vector3 queueLocalPosition)
+            Vector3 queueLocalPosition,
+            float curveStrength)
         {
             waypointLocalPositions.Clear();
 
@@ -31,6 +34,7 @@ namespace FlowBlast.Data
 
             isClosedLoop = closedLoop;
             boxQueueLocalPosition = queueLocalPosition;
+            this.curveStrength = Mathf.Clamp01(curveStrength);
         }
 
         public void ApplyTo(BeltPath beltPath, Transform boxQueueParent, BeltWaypointMarker waypointPrefab)

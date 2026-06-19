@@ -15,6 +15,7 @@ namespace FlowBlast.Editor
         public IReadOnlyList<Vector3> WaypointLocalPositions => waypointLocalPositions;
         public bool IsClosedLoop { get; set; } = true;
         public Vector3 BoxQueueLocalPosition { get; set; } = new Vector3(-2f, 0f, -3f);
+        public float CurveStrength { get; set; } = 1f;
         public int SelectedWaypointIndex { get; set; } = -1;
 
         public float PathLength
@@ -31,8 +32,9 @@ namespace FlowBlast.Editor
             waypointLocalPositions.Clear();
             IsClosedLoop = true;
             BoxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
+            CurveStrength = 1f;
             SelectedWaypointIndex = -1;
-            pathSampler.Rebuild(waypointLocalPositions, IsClosedLoop);
+            pathSampler.Rebuild(waypointLocalPositions, IsClosedLoop, CurveStrength);
         }
 
         public void LoadFrom(LevelMapLayout layout)
@@ -46,6 +48,7 @@ namespace FlowBlast.Editor
 
             IsClosedLoop = layout.IsClosedLoop;
             BoxQueueLocalPosition = layout.BoxQueueLocalPosition;
+            CurveStrength = layout.CurveStrength;
 
             for (int i = 0; i < layout.WaypointLocalPositions.Count; i++)
             {
@@ -62,7 +65,7 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            layout.SetLayoutData(waypointLocalPositions, IsClosedLoop, BoxQueueLocalPosition);
+            layout.SetLayoutData(waypointLocalPositions, IsClosedLoop, BoxQueueLocalPosition, CurveStrength);
         }
 
         public void LoadFromScene(BeltPath beltPath, Transform boxQueueParent)
@@ -76,6 +79,7 @@ namespace FlowBlast.Editor
 
             beltPath.CaptureLocalWaypointPositions(waypointLocalPositions);
             IsClosedLoop = beltPath.IsClosedLoop;
+            CurveStrength = beltPath.CurveStrength;
             BoxQueueLocalPosition = boxQueueParent != null
                 ? boxQueueParent.localPosition
                 : Vector3.zero;
@@ -181,7 +185,7 @@ namespace FlowBlast.Editor
 
         private void RebuildSampler()
         {
-            pathSampler.Rebuild(waypointLocalPositions, IsClosedLoop);
+            pathSampler.Rebuild(waypointLocalPositions, IsClosedLoop, CurveStrength);
         }
     }
 }

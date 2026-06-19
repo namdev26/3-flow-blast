@@ -183,6 +183,9 @@ namespace FlowBlast.Presentation.Box
                 StopCoroutine(flyCoroutine);
             }
 
+            isActiveOnMainBelt = false;
+            isActiveOnBoxConveyor = false;
+            conveyorSlotIndex = -1;
             flyCoroutine = StartCoroutine(FlyToConveyorRoutine(
                 getTargetPosition,
                 GameConstants.BoxFlyToConveyorDuration,

@@ -78,7 +78,14 @@ namespace FlowBlast.Bootstrap
         {
             if (beltPath == null)
             {
-                beltPath = GetComponentInChildren<BeltPath>();
+                Transform conveyorRoot = TransformHierarchyUtility.FindChildRecursive(
+                    transform,
+                    GameplayZoneNames.ConveyorRoot);
+
+                if (conveyorRoot != null)
+                {
+                    beltPath = conveyorRoot.GetComponent<BeltPath>();
+                }
             }
 
             if (boxQueueParent == null)

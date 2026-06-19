@@ -1,5 +1,7 @@
 #if UNITY_EDITOR
 using FlowBlast.Bootstrap;
+using FlowBlast.Core.Constants;
+using FlowBlast.Core.Utilities;
 using FlowBlast.Data;
 using FlowBlast.Services.Belt;
 using UnityEditor;
@@ -14,6 +16,8 @@ namespace FlowBlast.Editor
         private const float CanvasMinHeight = 420f;
         private const float BottomPanelHeight = 220f;
         private const float SectionSpacing = 8f;
+        private const float MinCurveStrength = 0f;
+        private const float MaxCurveStrength = 1f;
 
         private static FlowBlastMapEditorWindow instance;
 
@@ -25,8 +29,9 @@ namespace FlowBlast.Editor
         private LevelMapLayout layoutAsset;
         private LevelMapLayout trackedLayoutAsset;
 
-        private float presetHalfWidth = 1.6f;
-        private float presetHalfDepth = 4f;
+        private const float DefaultPresetHalfWidth = 1.6f;
+        private const float DefaultPresetHalfDepth = 4f;
+
         private float canvasZoom = 24f;
         private Vector2 canvasPan = Vector2.zero;
         private Vector2 waypointScrollPosition;
@@ -78,8 +83,34 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            beltPath = FindFirstObjectByType<BeltPath>();
+            beltPath = ResolveMainConveyorBeltPath();
             ResolveBoxQueueParent();
+        }
+
+        private BeltPath ResolveMainConveyorBeltPath()
+        {
+            MapLayoutBinder binder = FindFirstObjectByType<MapLayoutBinder>();
+
+            if (binder != null && binder.BeltPath != null)
+            {
+                return binder.BeltPath;
+            }
+
+            GameplayInstaller installer = FindFirstObjectByType<GameplayInstaller>();
+
+            if (installer != null)
+            {
+                Transform conveyorRoot = TransformHierarchyUtility.FindChildRecursive(
+                    installer.transform,
+                    GameplayZoneNames.ConveyorRoot);
+
+                if (conveyorRoot != null)
+                {
+                    return conveyorRoot.GetComponent<BeltPath>();
+                }
+            }
+
+            return null;
         }
 
         private void ResolveBoxQueueParent()
@@ -99,11 +130,15 @@ namespace FlowBlast.Editor
 
             if (installer == null)
             {
+                boxQueueParent = null;
                 return;
             }
 
             SerializedObject serializedInstaller = new SerializedObject(installer);
-            boxQueueParent = serializedInstaller.FindProperty("boxQueueParent").objectReferenceValue as Transform;
+            SerializedProperty boxQueueParentProperty = serializedInstaller.FindProperty("boxQueueParent");
+            boxQueueParent = boxQueueParentProperty != null
+                ? boxQueueParentProperty.objectReferenceValue as Transform
+                : null;
         }
 
         private void OnGUI()
@@ -220,6 +255,14 @@ namespace FlowBlast.Editor
                 editState.IsClosedLoop = closedLoop;
             }
 
+            EditorGUI.BeginChangeCheck();
+            float curveStrength = EditorGUILayout.Slider("Curve Strength", editState.CurveStrength, MinCurveStrength, MaxCurveStrength);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                editState.CurveStrength = curveStrength;
+            }
+
             if (isBoxQueueSelected)
             {
                 EditorGUI.BeginChangeCheck();
@@ -250,6 +293,8 @@ namespace FlowBlast.Editor
 
                     editState.SetWaypointPosition(index, waypointPosition);
                 }
+
+                EditorGUILayout.LabelField("Curve Preview", $"{editState.CurveStrength:0.00}");
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
@@ -283,24 +328,22 @@ namespace FlowBlast.Editor
         private void DrawPresetPanel()
         {
             EditorGUILayout.LabelField("Presets", EditorStyles.boldLabel);
-            presetHalfWidth = EditorGUILayout.FloatField("Half Width", presetHalfWidth);
-            presetHalfDepth = EditorGUILayout.FloatField("Half Depth", presetHalfDepth);
 
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Rectangle"))
                 {
-                    ApplyPreset(MapPathPresets.CreateRectangleLoop(presetHalfWidth, presetHalfDepth), true);
+                    ApplyPreset(MapPathPresets.CreateRectangleLoop(DefaultPresetHalfWidth, DefaultPresetHalfDepth), true);
                 }
 
                 if (GUILayout.Button("U Shape"))
                 {
-                    ApplyPreset(MapPathPresets.CreateUShape(presetHalfWidth, presetHalfDepth), false);
+                    ApplyPreset(MapPathPresets.CreateUShape(DefaultPresetHalfWidth, DefaultPresetHalfDepth), false);
                 }
 
                 if (GUILayout.Button("Line"))
                 {
-                    ApplyPreset(MapPathPresets.CreateStraightLine(presetHalfDepth * 2f, 5), false);
+                    ApplyPreset(MapPathPresets.CreateStraightLine(DefaultPresetHalfDepth * 2f, 5), false);
                 }
             }
         }
@@ -418,7 +461,11 @@ namespace FlowBlast.Editor
 
             Undo.RecordObject(beltPath, "Apply Map Layout To Scene");
             BeltWaypointMarker waypointPrefab = LoadWaypointPrefab();
-            beltPath.ApplyLocalWaypoints(editState.WaypointLocalPositions, editState.IsClosedLoop, waypointPrefab);
+            beltPath.ApplyLocalWaypoints(
+                editState.WaypointLocalPositions,
+                editState.IsClosedLoop,
+                editState.CurveStrength,
+                waypointPrefab);
 
             if (boxQueueParent != null)
             {

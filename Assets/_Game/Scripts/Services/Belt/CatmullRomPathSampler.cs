@@ -18,16 +18,19 @@ namespace FlowBlast.Services.Belt
         private readonly List<Vector3> sampledPositions = new List<Vector3>();
         private float totalLength;
         private bool isClosedLoop;
+        private float curveStrength = 1f;
 
         public float TotalLength => totalLength;
+        public float CurveStrength => curveStrength;
 
-        public void Rebuild(IReadOnlyList<Vector3> points, bool closedLoop)
+        public void Rebuild(IReadOnlyList<Vector3> points, bool closedLoop, float curveStrength = 1f)
         {
             controlPoints.Clear();
             arcLengthTable.Clear();
             sampledPositions.Clear();
             totalLength = 0f;
             isClosedLoop = closedLoop;
+            this.curveStrength = Mathf.Clamp01(curveStrength);
 
             if (points == null || points.Count < 2)
             {
@@ -45,7 +48,7 @@ namespace FlowBlast.Services.Belt
                 for (int sampleIndex = startSampleIndex; sampleIndex <= GameConstants.BeltPathSamplesPerSegment; sampleIndex++)
                 {
                     float t = sampleIndex / (float)GameConstants.BeltPathSamplesPerSegment;
-                    Vector3 point = EvaluateCatmullRom(controlPoints, segmentIndex, t, closedLoop);
+                    Vector3 point = EvaluateCatmullRom(controlPoints, segmentIndex, t, closedLoop, this.curveStrength);
                     AppendArcLengthEntry(segmentIndex, t, point);
                 }
             }
@@ -60,10 +63,10 @@ namespace FlowBlast.Services.Belt
 
             if (!TryResolveSplineParameter(distance, out int segmentIndex, out float t))
             {
-                return EvaluateCatmullRom(controlPoints, arcLengthTable[0].SegmentIndex, arcLengthTable[0].T, isClosedLoop);
+                return EvaluateCatmullRom(controlPoints, arcLengthTable[0].SegmentIndex, arcLengthTable[0].T, isClosedLoop, curveStrength);
             }
 
-            return EvaluateCatmullRom(controlPoints, segmentIndex, t, isClosedLoop);
+            return EvaluateCatmullRom(controlPoints, segmentIndex, t, isClosedLoop, curveStrength);
         }
 
         public Vector3 GetTangentAtDistance(float distance)
@@ -79,10 +82,11 @@ namespace FlowBlast.Services.Belt
                     controlPoints,
                     arcLengthTable[0].SegmentIndex,
                     arcLengthTable[0].T,
-                    isClosedLoop);
+                    isClosedLoop,
+                    curveStrength);
             }
 
-            Vector3 tangent = EvaluateCatmullRomDerivative(controlPoints, segmentIndex, t, isClosedLoop);
+            Vector3 tangent = EvaluateCatmullRomDerivative(controlPoints, segmentIndex, t, isClosedLoop, curveStrength);
 
             if (tangent.sqrMagnitude <= Mathf.Epsilon)
             {
@@ -244,34 +248,39 @@ namespace FlowBlast.Services.Belt
             IReadOnlyList<Vector3> points,
             int segmentIndex,
             float t,
-            bool closedLoop)
+            bool closedLoop,
+            float curveStrength)
         {
             ResolveControlPoints(points, segmentIndex, closedLoop, out Vector3 p0, out Vector3 p1, out Vector3 p2, out Vector3 p3);
-
+            Vector3 m1 = (p2 - p0) * (0.5f * curveStrength);
+            Vector3 m2 = (p3 - p1) * (0.5f * curveStrength);
             float t2 = t * t;
             float t3 = t2 * t;
+            float h00 = 2f * t3 - 3f * t2 + 1f;
+            float h10 = t3 - 2f * t2 + t;
+            float h01 = -2f * t3 + 3f * t2;
+            float h11 = t3 - t2;
 
-            return 0.5f * (
-                (2f * p1) +
-                (-p0 + p2) * t +
-                (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 +
-                (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
+            return h00 * p1 + h10 * m1 + h01 * p2 + h11 * m2;
         }
 
         private static Vector3 EvaluateCatmullRomDerivative(
             IReadOnlyList<Vector3> points,
             int segmentIndex,
             float t,
-            bool closedLoop)
+            bool closedLoop,
+            float curveStrength)
         {
             ResolveControlPoints(points, segmentIndex, closedLoop, out Vector3 p0, out Vector3 p1, out Vector3 p2, out Vector3 p3);
-
+            Vector3 m1 = (p2 - p0) * (0.5f * curveStrength);
+            Vector3 m2 = (p3 - p1) * (0.5f * curveStrength);
             float t2 = t * t;
+            float dh00 = 6f * t2 - 6f * t;
+            float dh10 = 3f * t2 - 4f * t + 1f;
+            float dh01 = -6f * t2 + 6f * t;
+            float dh11 = 3f * t2 - 2f * t;
 
-            return 0.5f * (
-                (-p0 + p2) +
-                (4f * p0 - 10f * p1 + 8f * p2 - 2f * p3) * t +
-                (-3f * p0 + 9f * p1 - 9f * p2 + 3f * p3) * t2);
+            return dh00 * p1 + dh10 * m1 + dh01 * p2 + dh11 * m2;
         }
 
         private static void ResolveControlPoints(
