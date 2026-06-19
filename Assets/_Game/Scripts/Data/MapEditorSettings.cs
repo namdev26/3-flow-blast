@@ -21,8 +21,10 @@ namespace FlowBlast.Data
 
         [Header("Colors")]
         [SerializeField] private Color gridColor = new Color(0.35f, 0.38f, 0.42f, 0.35f);
-        [SerializeField] private Color pathColor = new Color(0.2f, 0.85f, 1f, 0.95f);
-        [SerializeField] private Color waypointColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+        [SerializeField] private Color mainPathColor = new Color(0.2f, 0.85f, 1f, 0.95f);
+        [SerializeField] private Color queuePathColor = new Color(1f, 0.45f, 0.2f, 0.95f);
+        [SerializeField] private Color mainWaypointColor = new Color(1f, 0.9f, 0.2f, 0.95f);
+        [SerializeField] private Color queueWaypointColor = new Color(1f, 0.7f, 0.25f, 0.95f);
         [SerializeField] private Color lanePreviewColor = new Color(0.3f, 1f, 0.45f, 0.45f);
         [SerializeField] private Color boxQueueColor = new Color(1f, 0.45f, 0.2f, 0.95f);
 
@@ -36,8 +38,10 @@ namespace FlowBlast.Data
         public float LaneSpacing => laneSpacing;
         public float WaypointHandleSize => waypointHandleSize;
         public Color GridColor => gridColor;
-        public Color PathColor => pathColor;
-        public Color WaypointColor => waypointColor;
+        public Color MainPathColor => mainPathColor;
+        public Color QueuePathColor => queuePathColor;
+        public Color MainWaypointColor => mainWaypointColor;
+        public Color QueueWaypointColor => queueWaypointColor;
         public Color LanePreviewColor => lanePreviewColor;
         public Color BoxQueueColor => boxQueueColor;
     }

@@ -41,6 +41,7 @@ namespace FlowBlast.Editor
             }
 
             CatmullRomPathSampler sampler = BeltPathEditorUtility.BuildPreviewSampler(beltPath);
+            EditorGUILayout.LabelField("Path Role", BeltPathVisualPalette.GetDisplayName(beltPath.PathRole));
             EditorGUILayout.LabelField("Path Length", sampler.TotalLength.ToString("0.00"));
             EditorGUILayout.LabelField("Block Capacity", BeltPathEditorUtility.GetBlockCapacity(beltPath, settings).ToString());
         }

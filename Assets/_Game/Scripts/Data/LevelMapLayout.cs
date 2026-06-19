@@ -8,43 +8,135 @@ namespace FlowBlast.Data
     public sealed class LevelMapLayout : ScriptableObject
     {
         [SerializeField] private string layoutId = "MapLayout_01";
-        [SerializeField] private bool isClosedLoop = true;
-        [SerializeField] private List<Vector3> waypointLocalPositions = new List<Vector3>();
+        [SerializeField] private bool isMainPathClosedLoop = true;
+        [SerializeField] private List<Vector3> mainWaypointLocalPositions = new List<Vector3>();
         [SerializeField] private Vector3 boxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
-        [SerializeField] private float curveStrength = 1f;
+        [SerializeField] private float mainCurveStrength = 1f;
+        [SerializeField] private List<QueuePathLayout> queuePaths = new List<QueuePathLayout>();
 
         public string LayoutId => layoutId;
-        public bool IsClosedLoop => isClosedLoop;
-        public IReadOnlyList<Vector3> WaypointLocalPositions => waypointLocalPositions;
+        public bool IsMainPathClosedLoop => isMainPathClosedLoop;
+        public IReadOnlyList<Vector3> MainWaypointLocalPositions => mainWaypointLocalPositions;
         public Vector3 BoxQueueLocalPosition => boxQueueLocalPosition;
-        public float CurveStrength => curveStrength;
+        public float MainCurveStrength => mainCurveStrength;
+        public IReadOnlyList<QueuePathLayout> QueuePaths => queuePaths;
 
-        public void SetLayoutData(
+        public void SetMainPathData(
             IReadOnlyList<Vector3> localPositions,
             bool closedLoop,
-            Vector3 queueLocalPosition,
             float curveStrength)
         {
-            waypointLocalPositions.Clear();
+            CopyPositions(localPositions, mainWaypointLocalPositions);
+            isMainPathClosedLoop = closedLoop;
+            mainCurveStrength = Mathf.Clamp01(curveStrength);
+        }
 
-            for (int i = 0; i < localPositions.Count; i++)
+        public void SetQueuePathData(
+            string queueId,
+            string displayName,
+            IReadOnlyList<Vector3> localPositions,
+            bool closedLoop,
+            float curveStrength)
+        {
+            QueuePathLayout queuePath = GetOrCreateQueuePath(queueId, displayName);
+            queuePath.SetIdentity(queueId, displayName);
+            queuePath.SetPathData(localPositions, closedLoop, curveStrength);
+        }
+
+        public bool TryGetQueuePath(string queueId, out QueuePathLayout queuePath)
+        {
+            for (int i = 0; i < queuePaths.Count; i++)
             {
-                waypointLocalPositions.Add(localPositions[i]);
+                if (queuePaths[i] != null && queuePaths[i].QueueId == queueId)
+                {
+                    queuePath = queuePaths[i];
+                    return true;
+                }
             }
 
-            isClosedLoop = closedLoop;
-            boxQueueLocalPosition = queueLocalPosition;
-            this.curveStrength = Mathf.Clamp01(curveStrength);
+            queuePath = null;
+            return false;
         }
 
-        public void ApplyTo(BeltPath beltPath, Transform boxQueueParent, BeltWaypointMarker waypointPrefab)
+        public void RemoveMissingQueuePaths(IReadOnlyCollection<string> validQueueIds)
         {
-            MapLayoutApplicator.Apply(this, beltPath, boxQueueParent, waypointPrefab);
+            for (int i = queuePaths.Count - 1; i >= 0; i--)
+            {
+                if (queuePaths[i] == null || ContainsQueueId(validQueueIds, queuePaths[i].QueueId))
+                {
+                    continue;
+                }
+
+                queuePaths.RemoveAt(i);
+            }
         }
 
-        public void CaptureFrom(BeltPath beltPath, Transform boxQueueParent)
+        private static bool ContainsQueueId(IReadOnlyCollection<string> queueIds, string queueId)
         {
-            MapLayoutApplicator.Capture(this, beltPath, boxQueueParent);
+            if (queueIds == null)
+            {
+                return false;
+            }
+
+            foreach (string currentQueueId in queueIds)
+            {
+                if (currentQueueId == queueId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public void SetBoxQueueLocalPosition(Vector3 localPosition)
+        {
+            boxQueueLocalPosition = localPosition;
+        }
+
+        public void ApplyTo(
+            BeltPath mainBeltPath,
+            IReadOnlyList<BeltPath> queueBeltPaths,
+            Transform boxQueueParent,
+            BeltWaypointMarker waypointPrefab)
+        {
+            MapLayoutApplicator.Apply(this, mainBeltPath, queueBeltPaths, boxQueueParent, waypointPrefab);
+        }
+
+        public void CaptureFrom(
+            BeltPath mainBeltPath,
+            IReadOnlyList<BeltPath> queueBeltPaths,
+            Transform boxQueueParent)
+        {
+            MapLayoutApplicator.Capture(this, mainBeltPath, queueBeltPaths, boxQueueParent);
+        }
+
+        private QueuePathLayout GetOrCreateQueuePath(string queueId, string displayName)
+        {
+            if (TryGetQueuePath(queueId, out QueuePathLayout existingQueuePath))
+            {
+                return existingQueuePath;
+            }
+
+            QueuePathLayout newQueuePath = new QueuePathLayout();
+            newQueuePath.SetIdentity(queueId, displayName);
+            queuePaths.Add(newQueuePath);
+            return newQueuePath;
+        }
+
+        private static void CopyPositions(IReadOnlyList<Vector3> source, List<Vector3> target)
+        {
+            target.Clear();
+
+            if (source == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < source.Count; i++)
+            {
+                target.Add(source[i]);
+            }
         }
     }
 }

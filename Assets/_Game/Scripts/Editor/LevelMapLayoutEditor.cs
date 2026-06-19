@@ -16,7 +16,8 @@ namespace FlowBlast.Editor
 
             EditorGUILayout.Space(8f);
             EditorGUILayout.LabelField("Summary", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("Waypoint Count", layout.WaypointLocalPositions.Count.ToString());
+            EditorGUILayout.LabelField("Main Waypoints", layout.MainWaypointLocalPositions.Count.ToString());
+            EditorGUILayout.LabelField("Queue Paths", layout.QueuePaths.Count.ToString());
             EditorGUILayout.LabelField("Box Queue Local", layout.BoxQueueLocalPosition.ToString("F2"));
 
             EditorGUILayout.HelpBox(

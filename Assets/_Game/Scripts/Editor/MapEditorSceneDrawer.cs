@@ -54,7 +54,9 @@ namespace FlowBlast.Editor
             CatmullRomPathSampler sampler = BeltPathEditorUtility.BuildPreviewSampler(beltPath);
             IReadOnlyList<Vector3> samples = sampler.GetSampledPositions();
 
-            Handles.color = settings.PathColor;
+            Handles.color = beltPath.PathRole == BeltPathRole.Queue
+                ? settings.QueuePathColor
+                : settings.MainPathColor;
 
             for (int i = 1; i < samples.Count; i++)
             {
@@ -177,7 +179,11 @@ namespace FlowBlast.Editor
 
                 Vector3 position = waypoint.position;
                 float handleSize = HandleUtility.GetHandleSize(position) * settings.WaypointHandleSize;
-                Handles.color = i == selectedWaypointIndex ? Color.white : settings.WaypointColor;
+                Handles.color = i == selectedWaypointIndex
+                    ? Color.white
+                    : beltPath.PathRole == BeltPathRole.Queue
+                        ? settings.QueueWaypointColor
+                        : settings.MainWaypointColor;
                 Handles.SphereHandleCap(0, position, Quaternion.identity, handleSize, EventType.Repaint);
                 Handles.Label(position + Vector3.up * handleSize * 1.5f, $"WP {i}");
 

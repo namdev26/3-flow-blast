@@ -26,12 +26,13 @@ namespace FlowBlast.Editor
             if (layout != null)
             {
                 EditorGUILayout.LabelField("Layout Id", layout.LayoutId);
-                EditorGUILayout.LabelField("Waypoints", layout.WaypointLocalPositions.Count.ToString());
-                EditorGUILayout.LabelField("Closed Loop", layout.IsClosedLoop ? "Yes" : "No");
+                EditorGUILayout.LabelField("Main Waypoints", layout.MainWaypointLocalPositions.Count.ToString());
+                EditorGUILayout.LabelField("Queue Paths", layout.QueuePaths.Count.ToString());
+                EditorGUILayout.LabelField("Main Closed Loop", layout.IsMainPathClosedLoop ? "Yes" : "No");
             }
             else
             {
-                EditorGUILayout.HelpBox("Assign a Level Map Layout asset to preview and apply the belt path.", MessageType.Info);
+                EditorGUILayout.HelpBox("Assign a Level Map Layout asset to preview and apply belt paths.", MessageType.Info);
             }
 
             EditorGUILayout.Space(4f);
@@ -100,7 +101,7 @@ namespace FlowBlast.Editor
 
             LevelMapLayout layout = ScriptableObject.CreateInstance<LevelMapLayout>();
             Transform boxQueueParent = binder.transform.Find("BoxQueueParent");
-            MapLayoutApplicator.Capture(layout, binder.BeltPath, boxQueueParent);
+            MapLayoutApplicator.Capture(layout, binder.BeltPath, binder.QueueBeltPaths, boxQueueParent);
 
             AssetDatabase.CreateAsset(layout, path);
             AssetDatabase.SaveAssets();
@@ -118,6 +119,14 @@ namespace FlowBlast.Editor
             if (binder.BeltPath != null)
             {
                 EditorUtility.SetDirty(binder.BeltPath);
+            }
+
+            for (int i = 0; i < binder.QueueBeltPaths.Count; i++)
+            {
+                if (binder.QueueBeltPaths[i] != null)
+                {
+                    EditorUtility.SetDirty(binder.QueueBeltPaths[i]);
+                }
             }
 
             Transform boxQueueParent = binder.transform.Find("BoxQueueParent");

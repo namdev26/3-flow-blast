@@ -17,6 +17,8 @@ namespace FlowBlast.Editor
         public Vector3 BoxQueueLocalPosition { get; set; } = new Vector3(-2f, 0f, -3f);
         public float CurveStrength { get; set; } = 1f;
         public int SelectedWaypointIndex { get; set; } = -1;
+        public string QueueId { get; private set; }
+        public string DisplayName { get; private set; }
 
         public float PathLength
         {
@@ -34,10 +36,18 @@ namespace FlowBlast.Editor
             BoxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
             CurveStrength = 1f;
             SelectedWaypointIndex = -1;
+            QueueId = null;
+            DisplayName = null;
             pathSampler.Rebuild(waypointLocalPositions, IsClosedLoop, CurveStrength);
         }
 
-        public void LoadFrom(LevelMapLayout layout)
+        public void InitializeQueueIdentity(string queueId, string displayName)
+        {
+            QueueId = queueId;
+            DisplayName = displayName;
+        }
+
+        public void LoadMainPath(LevelMapLayout layout)
         {
             Clear();
 
@@ -46,31 +56,72 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            IsClosedLoop = layout.IsClosedLoop;
+            IsClosedLoop = layout.IsMainPathClosedLoop;
+            CurveStrength = layout.MainCurveStrength;
             BoxQueueLocalPosition = layout.BoxQueueLocalPosition;
-            CurveStrength = layout.CurveStrength;
 
-            for (int i = 0; i < layout.WaypointLocalPositions.Count; i++)
+            for (int i = 0; i < layout.MainWaypointLocalPositions.Count; i++)
             {
-                waypointLocalPositions.Add(layout.WaypointLocalPositions[i]);
+                waypointLocalPositions.Add(layout.MainWaypointLocalPositions[i]);
             }
 
             RebuildSampler();
         }
 
-        public void WriteTo(LevelMapLayout layout)
+        public void LoadQueuePath(LevelMapLayout layout, string queueId, string displayName)
+        {
+            Clear();
+            InitializeQueueIdentity(queueId, displayName);
+
+            if (layout == null)
+            {
+                return;
+            }
+
+            BoxQueueLocalPosition = layout.BoxQueueLocalPosition;
+
+            if (!layout.TryGetQueuePath(queueId, out QueuePathLayout queueLayout))
+            {
+                return;
+            }
+
+            IsClosedLoop = queueLayout.IsClosedLoop;
+            CurveStrength = queueLayout.CurveStrength;
+
+            for (int i = 0; i < queueLayout.WaypointLocalPositions.Count; i++)
+            {
+                waypointLocalPositions.Add(queueLayout.WaypointLocalPositions[i]);
+            }
+
+            RebuildSampler();
+        }
+
+        public void WriteMainPathTo(LevelMapLayout layout)
         {
             if (layout == null)
             {
                 return;
             }
 
-            layout.SetLayoutData(waypointLocalPositions, IsClosedLoop, BoxQueueLocalPosition, CurveStrength);
+            layout.SetMainPathData(waypointLocalPositions, IsClosedLoop, CurveStrength);
+            layout.SetBoxQueueLocalPosition(BoxQueueLocalPosition);
+        }
+
+        public void WriteQueuePathTo(LevelMapLayout layout)
+        {
+            if (layout == null || string.IsNullOrWhiteSpace(QueueId))
+            {
+                return;
+            }
+
+            layout.SetQueuePathData(QueueId, DisplayName, waypointLocalPositions, IsClosedLoop, CurveStrength);
+            layout.SetBoxQueueLocalPosition(BoxQueueLocalPosition);
         }
 
         public void LoadFromScene(BeltPath beltPath, Transform boxQueueParent)
         {
-            Clear();
+            waypointLocalPositions.Clear();
+            SelectedWaypointIndex = -1;
 
             if (beltPath == null)
             {
@@ -83,6 +134,8 @@ namespace FlowBlast.Editor
             BoxQueueLocalPosition = boxQueueParent != null
                 ? boxQueueParent.localPosition
                 : Vector3.zero;
+            QueueId = beltPath.PathRole == BeltPathRole.Queue ? beltPath.PathId : null;
+            DisplayName = beltPath.PathRole == BeltPathRole.Queue ? beltPath.name : null;
 
             RebuildSampler();
         }

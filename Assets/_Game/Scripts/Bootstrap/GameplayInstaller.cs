@@ -90,12 +90,38 @@ namespace FlowBlast.Bootstrap
             }
 
             Transform[] boxWaypoints = new Transform[BoxConveyorLayout.DefaultOvalWaypointLocalPositions.Length];
+            BeltWaypointMarker waypointPrefab = null;
+
+#if UNITY_EDITOR
+            GameObject waypointPrefabObject = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/BeltWaypointMarker.prefab");
+            waypointPrefab = waypointPrefabObject != null ? waypointPrefabObject.GetComponent<BeltWaypointMarker>() : null;
+#endif
 
             for (int i = 0; i < BoxConveyorLayout.DefaultOvalWaypointLocalPositions.Length; i++)
             {
-                GameObject waypointObject = new GameObject($"BoxConveyorWaypoint_{i}");
-                waypointObject.transform.SetParent(boxConveyorPath.transform, false);
+                GameObject waypointObject;
+
+                if (waypointPrefab != null)
+                {
+                    waypointObject = Instantiate(waypointPrefab.gameObject, boxConveyorPath.transform);
+                }
+                else
+                {
+                    waypointObject = new GameObject($"BoxConveyorWaypoint_{i}");
+                    waypointObject.transform.SetParent(boxConveyorPath.transform, false);
+                    waypointObject.AddComponent<BeltWaypointMarker>();
+                }
+
                 waypointObject.transform.localPosition = BoxConveyorLayout.DefaultOvalWaypointLocalPositions[i];
+
+                BeltWaypointMarker marker = waypointObject.GetComponent<BeltWaypointMarker>();
+
+                if (marker != null)
+                {
+                    marker.SetWaypointIndex(i);
+                    marker.SetPathRole(boxConveyorPath.PathRole);
+                }
+
                 boxWaypoints[i] = waypointObject.transform;
             }
 

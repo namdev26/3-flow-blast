@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using FlowBlast.Core.Constants;
 using FlowBlast.Core.Utilities;
 using FlowBlast.Data;
@@ -11,6 +12,7 @@ namespace FlowBlast.Bootstrap
     {
         [SerializeField] private LevelMapLayout mapLayout;
         [SerializeField] private BeltPath beltPath;
+        [SerializeField] private List<BeltPath> queueBeltPaths = new List<BeltPath>();
         [SerializeField] private Transform boxQueueParent;
         [SerializeField] private BeltWaypointMarker waypointPrefab;
         [SerializeField] private bool applyOnAwake = true;
@@ -18,6 +20,7 @@ namespace FlowBlast.Bootstrap
 
         public LevelMapLayout MapLayout => mapLayout;
         public BeltPath BeltPath => beltPath;
+        public IReadOnlyList<BeltPath> QueueBeltPaths => queueBeltPaths;
 
         private void Awake()
         {
@@ -33,12 +36,12 @@ namespace FlowBlast.Bootstrap
         {
             ResolveReferences();
 
-            if (mapLayout == null || beltPath == null)
+            if (mapLayout == null)
             {
                 return;
             }
 
-            MapLayoutApplicator.Apply(mapLayout, beltPath, boxQueueParent, waypointPrefab);
+            MapLayoutApplicator.Apply(mapLayout, beltPath, queueBeltPaths, boxQueueParent, waypointPrefab);
 
 #if UNITY_EDITOR
             lastAppliedLayout = mapLayout;
@@ -47,6 +50,14 @@ namespace FlowBlast.Bootstrap
             if (beltPath != null)
             {
                 UnityEditor.EditorUtility.SetDirty(beltPath);
+            }
+
+            for (int i = 0; i < queueBeltPaths.Count; i++)
+            {
+                if (queueBeltPaths[i] != null)
+                {
+                    UnityEditor.EditorUtility.SetDirty(queueBeltPaths[i]);
+                }
             }
 
             if (boxQueueParent != null)
@@ -60,12 +71,12 @@ namespace FlowBlast.Bootstrap
         {
             ResolveReferences();
 
-            if (mapLayout == null || beltPath == null)
+            if (mapLayout == null)
             {
                 return;
             }
 
-            MapLayoutApplicator.Capture(mapLayout, beltPath, boxQueueParent);
+            MapLayoutApplicator.Capture(mapLayout, beltPath, queueBeltPaths, boxQueueParent);
         }
 
         public void SetMapLayout(LevelMapLayout layout)
@@ -88,6 +99,8 @@ namespace FlowBlast.Bootstrap
                 }
             }
 
+            ResolveQueueBeltPaths();
+
             if (boxQueueParent == null)
             {
                 boxQueueParent = TransformHierarchyUtility.FindChildRecursive(
@@ -107,6 +120,27 @@ namespace FlowBlast.Bootstrap
                 }
             }
 #endif
+        }
+
+        private void ResolveQueueBeltPaths()
+        {
+            queueBeltPaths.Clear();
+            BeltPath[] beltPaths = GetComponentsInChildren<BeltPath>(true);
+
+            for (int i = 0; i < beltPaths.Length; i++)
+            {
+                BeltPath candidate = beltPaths[i];
+
+                if (candidate == null || candidate == beltPath)
+                {
+                    continue;
+                }
+
+                if (candidate.PathRole == BeltPathRole.Queue)
+                {
+                    queueBeltPaths.Add(candidate);
+                }
+            }
         }
 
 #if UNITY_EDITOR

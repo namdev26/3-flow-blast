@@ -6,6 +6,8 @@ namespace FlowBlast.Services.Belt
     public sealed class BeltPath : MonoBehaviour, IBeltPath
     {
         [SerializeField] private Transform[] waypoints = new Transform[0];
+        [SerializeField] private string pathId = "Path";
+        [SerializeField] private BeltPathRole pathRole = BeltPathRole.Main;
         [SerializeField] private bool isClosedLoop = true;
         [SerializeField, Range(0f, 1f)] private float curveStrength = 1f;
 
@@ -14,6 +16,8 @@ namespace FlowBlast.Services.Belt
         private readonly List<Vector3> lastWaypointWorldPositions = new List<Vector3>();
 
         public float TotalLength => pathSampler.TotalLength;
+        public string PathId => string.IsNullOrWhiteSpace(pathId) ? name : pathId;
+        public BeltPathRole PathRole => pathRole;
         public bool IsClosedLoop => isClosedLoop;
         public float CurveStrength => curveStrength;
         public Transform[] Waypoints => waypoints;
@@ -234,6 +238,7 @@ namespace FlowBlast.Services.Belt
             }
 
             marker.SetWaypointIndex(index);
+            marker.SetPathRole(pathRole);
             return waypointObject.transform;
         }
 
@@ -283,7 +288,7 @@ namespace FlowBlast.Services.Belt
                 return;
             }
 
-            Gizmos.color = Color.cyan;
+            Gizmos.color = BeltPathVisualPalette.GetPathColor(pathRole);
 
             for (int i = 1; i < samples.Count; i++)
             {
@@ -295,7 +300,7 @@ namespace FlowBlast.Services.Belt
                 Gizmos.DrawLine(samples[samples.Count - 1], samples[0]);
             }
 
-            Gizmos.color = Color.yellow;
+            Gizmos.color = BeltPathVisualPalette.GetWaypointColor(pathRole);
 
             if (waypoints != null)
             {

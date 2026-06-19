@@ -25,21 +25,23 @@ namespace FlowBlast.Editor
 
         public static void Draw(
             Rect rect,
-            MapLayoutEditState editState,
+            MapLayoutEditState activeEditState,
+            IReadOnlyList<MapLayoutEditState> visibleEditStates,
             MapEditorSettings settings,
+            BeltPathRole activePathRole,
             ref float zoom,
             ref Vector2 pan,
             ref bool isBoxQueueSelected)
         {
-            if (editState == null)
+            if (activeEditState == null)
             {
                 return;
             }
 
             MapEditorSettings activeSettings = settings ?? BeltPathEditorUtility.LoadSettings();
             DrawBackground(rect);
-            HandleInput(rect, editState, activeSettings, ref zoom, ref pan, ref isBoxQueueSelected);
-            DrawContent(rect, editState, activeSettings, zoom, pan, isBoxQueueSelected);
+            HandleInput(rect, activeEditState, activeSettings, ref zoom, ref pan, ref isBoxQueueSelected);
+            DrawContent(rect, activeEditState, visibleEditStates, activeSettings, activePathRole, zoom, pan, isBoxQueueSelected);
 
             if (Event.current.type == EventType.Repaint)
             {
@@ -63,8 +65,10 @@ namespace FlowBlast.Editor
 
         private static void DrawContent(
             Rect rect,
-            MapLayoutEditState editState,
+            MapLayoutEditState activeEditState,
+            IReadOnlyList<MapLayoutEditState> visibleEditStates,
             MapEditorSettings settings,
+            BeltPathRole activePathRole,
             float zoom,
             Vector2 pan,
             bool isBoxQueueSelected)
@@ -78,21 +82,59 @@ namespace FlowBlast.Editor
             DrawGrid(rect, settings, zoom, pan);
             DrawVisibleArea(rect, zoom, pan);
 
+            if (visibleEditStates != null)
+            {
+                for (int i = 0; i < visibleEditStates.Count; i++)
+                {
+                    MapLayoutEditState editState = visibleEditStates[i];
+
+                    if (editState == null || ReferenceEquals(editState, activeEditState))
+                    {
+                        continue;
+                    }
+
+                    BeltPathRole pathRole = string.IsNullOrWhiteSpace(editState.QueueId)
+                        ? BeltPathRole.Main
+                        : BeltPathRole.Queue;
+                    DrawPathSet(rect, editState, settings, pathRole, false, zoom, pan);
+                }
+            }
+
+            DrawPathSet(rect, activeEditState, settings, activePathRole, true, zoom, pan);
+            DrawBoxQueue(rect, activeEditState.BoxQueueLocalPosition, settings, zoom, pan, isBoxQueueSelected);
+            Handles.EndGUI();
+        }
+
+        private static void DrawPathSet(
+            Rect rect,
+            MapLayoutEditState editState,
+            MapEditorSettings settings,
+            BeltPathRole pathRole,
+            bool isActivePath,
+            float zoom,
+            Vector2 pan)
+        {
+            if (editState == null)
+            {
+                return;
+            }
+
             IReadOnlyList<Vector3> samples = editState.GetSampledPath();
 
             if (samples.Count >= 2)
             {
-                DrawPath(rect, samples, settings.PathColor, zoom, pan);
+                Color pathColor = pathRole == BeltPathRole.Queue
+                    ? settings.QueuePathColor
+                    : settings.MainPathColor;
+                DrawPath(rect, samples, pathColor, isActivePath ? 3f : 2f, zoom, pan);
 
-                if (settings.ShowLanePreview)
+                if (settings.ShowLanePreview && isActivePath)
                 {
                     DrawLanePreview(rect, editState, settings, zoom, pan);
                 }
             }
 
-            DrawBoxQueue(rect, editState.BoxQueueLocalPosition, settings, zoom, pan, isBoxQueueSelected);
-            DrawWaypoints(rect, editState, settings, zoom, pan);
-            Handles.EndGUI();
+            DrawWaypoints(rect, editState, settings, pathRole, isActivePath, zoom, pan);
         }
 
         private static void DrawGrid(Rect rect, MapEditorSettings settings, float zoom, Vector2 pan)
@@ -153,7 +195,13 @@ namespace FlowBlast.Editor
             Handles.Label((Vector2)vertices[2] + new Vector2(8f, -18f), "Visible Area");
         }
 
-        private static void DrawPath(Rect rect, IReadOnlyList<Vector3> samples, Color color, float zoom, Vector2 pan)
+        private static void DrawPath(
+            Rect rect,
+            IReadOnlyList<Vector3> samples,
+            Color color,
+            float thickness,
+            float zoom,
+            Vector2 pan)
         {
             Handles.color = color;
 
@@ -161,7 +209,7 @@ namespace FlowBlast.Editor
             {
                 Vector2 start = WorldToCanvas(samples[i - 1], rect, zoom, pan);
                 Vector2 end = WorldToCanvas(samples[i], rect, zoom, pan);
-                Handles.DrawAAPolyLine(3f, start, end);
+                Handles.DrawAAPolyLine(thickness, start, end);
             }
         }
 
@@ -222,6 +270,8 @@ namespace FlowBlast.Editor
             Rect rect,
             MapLayoutEditState editState,
             MapEditorSettings settings,
+            BeltPathRole pathRole,
+            bool isActivePath,
             float zoom,
             Vector2 pan)
         {
@@ -230,10 +280,14 @@ namespace FlowBlast.Editor
             for (int i = 0; i < waypoints.Count; i++)
             {
                 Vector2 canvasPoint = WorldToCanvas(waypoints[i], rect, zoom, pan);
-                bool isSelected = editState.SelectedWaypointIndex == i;
-                float radius = isSelected ? 9f : 7f;
+                bool isSelected = isActivePath && editState.SelectedWaypointIndex == i;
+                float radius = isSelected ? 9f : isActivePath ? 7f : 5.5f;
 
-                Handles.color = isSelected ? Color.white : settings.WaypointColor;
+                Handles.color = isSelected
+                    ? Color.white
+                    : pathRole == BeltPathRole.Queue
+                        ? settings.QueueWaypointColor
+                        : settings.MainWaypointColor;
                 Handles.DrawSolidDisc(canvasPoint, Vector3.forward, radius);
                 Handles.Label(canvasPoint + new Vector2(10f, -8f), $"WP{i}");
             }
@@ -266,7 +320,7 @@ namespace FlowBlast.Editor
 
             GUI.Label(
                 new Rect(rect.x + 8f, rect.yMax - 36f, rect.width - 16f, 32f),
-                "Drag: move  |  Click empty: add WP  |  Scroll: zoom  |  Alt+Drag: pan  |  Del: remove",
+                "All queue paths are visible  |  Edit selected path  |  Drag: move  |  Click empty: add WP  |  Scroll: zoom  |  Alt+Drag: pan  |  Del: remove",
                 style);
         }
 

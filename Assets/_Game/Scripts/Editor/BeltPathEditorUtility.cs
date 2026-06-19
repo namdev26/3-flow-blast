@@ -199,6 +199,7 @@ namespace FlowBlast.Editor
                 }
 
                 marker.SetWaypointIndex(i);
+                marker.SetPathRole(beltPath.PathRole);
             }
         }
 
@@ -257,31 +258,53 @@ namespace FlowBlast.Editor
                 Mathf.Round(worldPosition.z / cellSize) * cellSize);
         }
 
-        public static void CaptureLayout(BeltPath beltPath, Transform boxQueueParent, LevelMapLayout layout)
+        public static void CaptureLayout(
+            BeltPath beltPath,
+            IReadOnlyList<BeltPath> queueBeltPaths,
+            Transform boxQueueParent,
+            LevelMapLayout layout)
         {
-            if (beltPath == null || layout == null)
+            if (layout == null)
             {
                 return;
             }
 
             Undo.RecordObject(layout, "Capture Map Layout");
-            layout.CaptureFrom(beltPath, boxQueueParent);
+            layout.CaptureFrom(beltPath, queueBeltPaths, boxQueueParent);
             EditorUtility.SetDirty(layout);
         }
 
-        public static void ApplyLayout(BeltPath beltPath, Transform boxQueueParent, LevelMapLayout layout)
+        public static void ApplyLayout(
+            BeltPath beltPath,
+            IReadOnlyList<BeltPath> queueBeltPaths,
+            Transform boxQueueParent,
+            LevelMapLayout layout)
         {
-            if (beltPath == null || layout == null)
+            if (layout == null)
             {
                 return;
             }
 
-            Undo.RecordObject(beltPath, "Apply Map Layout");
+            if (beltPath != null)
+            {
+                Undo.RecordObject(beltPath, "Apply Main Map Layout");
+            }
+
+            if (queueBeltPaths != null)
+            {
+                for (int i = 0; i < queueBeltPaths.Count; i++)
+                {
+                    if (queueBeltPaths[i] != null)
+                    {
+                        Undo.RecordObject(queueBeltPaths[i], "Apply Queue Map Layout");
+                    }
+                }
+            }
 
             BeltWaypointMarker waypointPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WaypointMarkerPrefabPath)
                 ?.GetComponent<BeltWaypointMarker>();
 
-            layout.ApplyTo(beltPath, boxQueueParent, waypointPrefab);
+            layout.ApplyTo(beltPath, queueBeltPaths, boxQueueParent, waypointPrefab);
 
             if (boxQueueParent != null)
             {
@@ -289,7 +312,22 @@ namespace FlowBlast.Editor
                 EditorUtility.SetDirty(boxQueueParent);
             }
 
-            EditorUtility.SetDirty(beltPath);
+            if (beltPath != null)
+            {
+                EditorUtility.SetDirty(beltPath);
+            }
+
+            if (queueBeltPaths != null)
+            {
+                for (int i = 0; i < queueBeltPaths.Count; i++)
+                {
+                    if (queueBeltPaths[i] != null)
+                    {
+                        EditorUtility.SetDirty(queueBeltPaths[i]);
+                    }
+                }
+            }
+
             SceneView.RepaintAll();
         }
 

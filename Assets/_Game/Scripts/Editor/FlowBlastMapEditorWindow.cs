@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using FlowBlast.Bootstrap;
 using FlowBlast.Core.Constants;
 using FlowBlast.Core.Utilities;
@@ -14,30 +15,33 @@ namespace FlowBlast.Editor
         private const string DefaultLayoutFolder = "Assets/_Game/Data/MapLayouts";
         private const string WaypointPrefabPath = "Assets/_Game/Prefabs/BeltWaypointMarker.prefab";
         private const float CanvasMinHeight = 420f;
-        private const float BottomPanelHeight = 220f;
+        private const float BottomPanelHeight = 240f;
         private const float SectionSpacing = 8f;
         private const float MinCurveStrength = 0f;
         private const float MaxCurveStrength = 1f;
+        private const string MainPathTabLabel = "Main Path";
 
         private static FlowBlastMapEditorWindow instance;
 
-        private readonly MapLayoutEditState editState = new MapLayoutEditState();
+        private readonly MapLayoutEditState mainEditState = new MapLayoutEditState();
+        private readonly List<MapLayoutEditState> queueEditStates = new List<MapLayoutEditState>();
 
         private BeltPath beltPath;
+        private readonly List<BeltPath> queueBeltPaths = new List<BeltPath>();
         private Transform boxQueueParent;
         private MapEditorSettings settings;
         private LevelMapLayout layoutAsset;
         private LevelMapLayout trackedLayoutAsset;
 
-        private const float DefaultPresetHalfWidth = 1.6f;
-        private const float DefaultPresetHalfDepth = 4f;
-
         private float canvasZoom = 24f;
         private Vector2 canvasPan = Vector2.zero;
-        private Vector2 waypointScrollPosition;
         private Vector2 sidebarScrollPosition;
         private bool isBoxQueueSelected;
         private bool showSceneSync;
+        private int activeQueueIndex = -1;
+
+        private const float DefaultPresetHalfWidth = 1.6f;
+        private const float DefaultPresetHalfDepth = 4f;
 
         public static bool IsOpen => instance != null;
 
@@ -52,9 +56,9 @@ namespace FlowBlast.Editor
         public static void ShowWindow(BeltPath targetPath)
         {
             FlowBlastMapEditorWindow window = GetWindow<FlowBlastMapEditorWindow>("FlowBlast Map");
-            window.minSize = new Vector2(720f, 640f);
+            window.minSize = new Vector2(760f, 680f);
             window.InitializeTargets(targetPath);
-            window.ReloadEditStateFromAsset();
+            window.ReloadEditStates();
         }
 
         private void OnEnable()
@@ -63,7 +67,7 @@ namespace FlowBlast.Editor
             settings = BeltPathEditorUtility.LoadSettings();
             InitializeTargets(null);
             TryLoadLayoutFromBinder();
-            ReloadEditStateFromAsset();
+            ReloadEditStates();
         }
 
         private void OnDisable()
@@ -74,17 +78,78 @@ namespace FlowBlast.Editor
             }
         }
 
+        private BeltPathRole ActivePathRole => activeQueueIndex >= 0 ? BeltPathRole.Queue : BeltPathRole.Main;
+
+        private MapLayoutEditState ActiveEditState
+        {
+            get
+            {
+                if (activeQueueIndex < 0 || activeQueueIndex >= queueEditStates.Count)
+                {
+                    return mainEditState;
+                }
+
+                return queueEditStates[activeQueueIndex];
+            }
+        }
+
+        private string ActivePathDisplayName
+        {
+            get
+            {
+                if (activeQueueIndex < 0 || activeQueueIndex >= queueEditStates.Count)
+                {
+                    return MainPathTabLabel;
+                }
+
+                string displayName = queueEditStates[activeQueueIndex].DisplayName;
+                return string.IsNullOrWhiteSpace(displayName) ? $"Queue {activeQueueIndex + 1:00}" : displayName;
+            }
+        }
+
+        private BeltPath GetActiveBeltPath()
+        {
+            if (activeQueueIndex < 0 || activeQueueIndex >= queueBeltPaths.Count)
+            {
+                return beltPath;
+            }
+
+            return queueBeltPaths[activeQueueIndex];
+        }
+
         private void InitializeTargets(BeltPath targetPath)
         {
             if (targetPath != null)
             {
-                beltPath = targetPath;
+                AssignPathTarget(targetPath);
+                ResolveQueueBeltPaths();
                 ResolveBoxQueueParent();
                 return;
             }
 
             beltPath = ResolveMainConveyorBeltPath();
+            ResolveQueueBeltPaths();
             ResolveBoxQueueParent();
+        }
+
+        private void AssignPathTarget(BeltPath targetPath)
+        {
+            if (targetPath == null)
+            {
+                return;
+            }
+
+            if (targetPath.PathRole == BeltPathRole.Queue)
+            {
+                queueBeltPaths.Clear();
+                queueBeltPaths.Add(targetPath);
+                beltPath = ResolveMainConveyorBeltPath();
+                activeQueueIndex = 0;
+                return;
+            }
+
+            beltPath = targetPath;
+            activeQueueIndex = -1;
         }
 
         private BeltPath ResolveMainConveyorBeltPath()
@@ -113,20 +178,107 @@ namespace FlowBlast.Editor
             return null;
         }
 
-        private void ResolveBoxQueueParent()
+        private void ResolveQueueBeltPaths()
         {
-            if (beltPath == null)
-            {
-                boxQueueParent = null;
-                return;
-            }
-
-            GameplayInstaller installer = beltPath.GetComponentInParent<GameplayInstaller>();
+            queueBeltPaths.Clear();
+            GameplayInstaller installer = ResolveInstaller();
 
             if (installer == null)
             {
-                installer = FindFirstObjectByType<GameplayInstaller>();
+                return;
             }
+
+            MapLayoutBinder binder = installer.GetComponent<MapLayoutBinder>();
+
+            if (binder != null && binder.QueueBeltPaths.Count > 0)
+            {
+                for (int i = 0; i < binder.QueueBeltPaths.Count; i++)
+                {
+                    if (binder.QueueBeltPaths[i] != null)
+                    {
+                        queueBeltPaths.Add(binder.QueueBeltPaths[i]);
+                    }
+                }
+            }
+
+            if (queueBeltPaths.Count > 0)
+            {
+                SortQueueBeltPaths();
+                ClampActiveQueueIndex();
+                return;
+            }
+
+            BeltPath[] beltPaths = installer.GetComponentsInChildren<BeltPath>(true);
+
+            for (int i = 0; i < beltPaths.Length; i++)
+            {
+                if (beltPaths[i] != null && beltPaths[i].PathRole == BeltPathRole.Queue)
+                {
+                    queueBeltPaths.Add(beltPaths[i]);
+                }
+            }
+
+            SortQueueBeltPaths();
+            ClampActiveQueueIndex();
+        }
+
+        private void SortQueueBeltPaths()
+        {
+            queueBeltPaths.Sort((left, right) =>
+            {
+                string leftId = left != null ? left.PathId : string.Empty;
+                string rightId = right != null ? right.PathId : string.Empty;
+                return string.CompareOrdinal(leftId, rightId);
+            });
+        }
+
+        private void ClampActiveQueueIndex()
+        {
+            if (queueBeltPaths.Count == 0)
+            {
+                activeQueueIndex = -1;
+                return;
+            }
+
+            if (activeQueueIndex >= queueBeltPaths.Count)
+            {
+                activeQueueIndex = queueBeltPaths.Count - 1;
+            }
+        }
+
+        private GameplayInstaller ResolveInstaller()
+        {
+            if (beltPath != null)
+            {
+                GameplayInstaller installer = beltPath.GetComponentInParent<GameplayInstaller>();
+
+                if (installer != null)
+                {
+                    return installer;
+                }
+            }
+
+            for (int i = 0; i < queueBeltPaths.Count; i++)
+            {
+                if (queueBeltPaths[i] == null)
+                {
+                    continue;
+                }
+
+                GameplayInstaller installer = queueBeltPaths[i].GetComponentInParent<GameplayInstaller>();
+
+                if (installer != null)
+                {
+                    return installer;
+                }
+            }
+
+            return FindFirstObjectByType<GameplayInstaller>();
+        }
+
+        private void ResolveBoxQueueParent()
+        {
+            GameplayInstaller installer = ResolveInstaller();
 
             if (installer == null)
             {
@@ -144,6 +296,7 @@ namespace FlowBlast.Editor
         private void OnGUI()
         {
             settings = (MapEditorSettings)EditorGUILayout.ObjectField("Editor Settings", settings, typeof(MapEditorSettings), false);
+            DrawPathTabs();
             DrawLayoutAssetField();
             DrawToolbar();
 
@@ -153,24 +306,53 @@ namespace FlowBlast.Editor
             DrawBottomPanel();
         }
 
-        private void DrawToolbar()
+        private void DrawPathTabs()
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
             {
-                if (GUILayout.Button("Add WP", EditorStyles.toolbarButton, GUILayout.Width(56f)))
+                bool isMainSelected = activeQueueIndex < 0;
+
+                if (GUILayout.Toggle(isMainSelected, MainPathTabLabel, EditorStyles.toolbarButton) && !isMainSelected)
                 {
-                    AddWaypointAfterSelection();
+                    SwitchToMainPath();
                 }
 
-                if (GUILayout.Button("Remove", EditorStyles.toolbarButton, GUILayout.Width(56f)))
+                for (int i = 0; i < queueEditStates.Count; i++)
                 {
-                    RemoveSelectedWaypoint();
-                }
+                    bool isSelected = activeQueueIndex == i;
+                    string label = GetQueueTabLabel(i);
 
-                GUILayout.FlexibleSpace();
-                EditorGUILayout.LabelField($"Len {editState.PathLength:0.0}", EditorStyles.miniLabel, GUILayout.Width(64f));
-                EditorGUILayout.LabelField($"WP {editState.WaypointLocalPositions.Count}", EditorStyles.miniLabel, GUILayout.Width(48f));
+                    if (GUILayout.Toggle(isSelected, label, EditorStyles.toolbarButton) && !isSelected)
+                    {
+                        SwitchToQueuePath(i);
+                    }
+                }
             }
+        }
+
+        private string GetQueueTabLabel(int index)
+        {
+            if (index < 0 || index >= queueEditStates.Count)
+            {
+                return $"Queue {index + 1:00}";
+            }
+
+            string displayName = queueEditStates[index].DisplayName;
+            return string.IsNullOrWhiteSpace(displayName) ? $"Queue {index + 1:00}" : displayName;
+        }
+
+        private void SwitchToMainPath()
+        {
+            activeQueueIndex = -1;
+            isBoxQueueSelected = false;
+            mainEditState.SelectedWaypointIndex = -1;
+        }
+
+        private void SwitchToQueuePath(int index)
+        {
+            activeQueueIndex = Mathf.Clamp(index, 0, queueEditStates.Count - 1);
+            isBoxQueueSelected = false;
+            ActiveEditState.SelectedWaypointIndex = -1;
         }
 
         private void DrawLayoutAssetField()
@@ -194,21 +376,57 @@ namespace FlowBlast.Editor
 
                 if (GUILayout.Button("Load", GUILayout.Width(48f)))
                 {
-                    ReloadEditStateFromAsset();
+                    ReloadEditStates();
                     ShowNotification(new GUIContent("Layout reloaded"));
                 }
             }
 
             if (EditorGUI.EndChangeCheck())
             {
-                ReloadEditStateFromAsset();
+                ReloadEditStates();
+            }
+        }
+
+        private void DrawToolbar()
+        {
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
+            {
+                if (GUILayout.Button("Add WP", EditorStyles.toolbarButton, GUILayout.Width(56f)))
+                {
+                    AddWaypointAfterSelection();
+                }
+
+                if (GUILayout.Button("Remove", EditorStyles.toolbarButton, GUILayout.Width(56f)))
+                {
+                    RemoveSelectedWaypoint();
+                }
+
+                GUILayout.Space(8f);
+
+                if (GUILayout.Button("Add Queue", EditorStyles.toolbarButton, GUILayout.Width(72f)))
+                {
+                    AddQueuePathTab();
+                }
+
+                using (new EditorGUI.DisabledScope(activeQueueIndex < 0))
+                {
+                    if (GUILayout.Button("Remove Queue", EditorStyles.toolbarButton, GUILayout.Width(96f)))
+                    {
+                        RemoveActiveQueuePathTab();
+                    }
+                }
+
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.LabelField(ActivePathDisplayName, EditorStyles.miniLabel, GUILayout.Width(90f));
+                EditorGUILayout.LabelField($"Len {ActiveEditState.PathLength:0.0}", EditorStyles.miniLabel, GUILayout.Width(64f));
+                EditorGUILayout.LabelField($"WP {ActiveEditState.WaypointLocalPositions.Count}", EditorStyles.miniLabel, GUILayout.Width(48f));
             }
         }
 
         private void DrawCanvas()
         {
             float availableHeight = position.height
-                - EditorGUIUtility.singleLineHeight * 2f
+                - EditorGUIUtility.singleLineHeight * 3f
                 - BottomPanelHeight
                 - SectionSpacing * 4f;
             float canvasHeight = Mathf.Max(CanvasMinHeight, availableHeight);
@@ -218,7 +436,25 @@ namespace FlowBlast.Editor
                 GUILayout.ExpandWidth(true),
                 GUILayout.Height(canvasHeight));
 
-            MapLayoutCanvasView.Draw(canvasRect, editState, settings, ref canvasZoom, ref canvasPan, ref isBoxQueueSelected);
+            MapLayoutCanvasView.Draw(
+                canvasRect,
+                ActiveEditState,
+                GetVisibleEditStates(),
+                settings,
+                ActivePathRole,
+                ref canvasZoom,
+                ref canvasPan,
+                ref isBoxQueueSelected);
+        }
+
+        private IReadOnlyList<MapLayoutEditState> GetVisibleEditStates()
+        {
+            List<MapLayoutEditState> visibleStates = new List<MapLayoutEditState>(1 + queueEditStates.Count)
+            {
+                mainEditState
+            };
+            visibleStates.AddRange(queueEditStates);
+            return visibleStates;
         }
 
         private void DrawBottomPanel()
@@ -246,41 +482,42 @@ namespace FlowBlast.Editor
         private void DrawSelectionPanel()
         {
             EditorGUILayout.LabelField("Selection", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Editing", ActivePathDisplayName);
 
             EditorGUI.BeginChangeCheck();
-            bool closedLoop = EditorGUILayout.Toggle("Closed Loop", editState.IsClosedLoop);
+            bool closedLoop = EditorGUILayout.Toggle("Closed Loop", ActiveEditState.IsClosedLoop);
 
             if (EditorGUI.EndChangeCheck())
             {
-                editState.IsClosedLoop = closedLoop;
+                ActiveEditState.IsClosedLoop = closedLoop;
             }
 
             EditorGUI.BeginChangeCheck();
-            float curveStrength = EditorGUILayout.Slider("Curve Strength", editState.CurveStrength, MinCurveStrength, MaxCurveStrength);
+            float curveStrength = EditorGUILayout.Slider("Curve Strength", ActiveEditState.CurveStrength, MinCurveStrength, MaxCurveStrength);
 
             if (EditorGUI.EndChangeCheck())
             {
-                editState.CurveStrength = curveStrength;
+                ActiveEditState.CurveStrength = curveStrength;
             }
 
             if (isBoxQueueSelected)
             {
                 EditorGUI.BeginChangeCheck();
-                Vector3 queuePosition = EditorGUILayout.Vector3Field("Box Queue", editState.BoxQueueLocalPosition);
+                Vector3 queuePosition = EditorGUILayout.Vector3Field("Box Queue", ActiveEditState.BoxQueueLocalPosition);
 
                 if (EditorGUI.EndChangeCheck())
                 {
-                    editState.SetBoxQueuePosition(queuePosition);
+                    SetSharedQueuePosition(queuePosition);
                 }
             }
-            else if (editState.SelectedWaypointIndex >= 0
-                && editState.SelectedWaypointIndex < editState.WaypointLocalPositions.Count)
+            else if (ActiveEditState.SelectedWaypointIndex >= 0
+                && ActiveEditState.SelectedWaypointIndex < ActiveEditState.WaypointLocalPositions.Count)
             {
-                int index = editState.SelectedWaypointIndex;
+                int index = ActiveEditState.SelectedWaypointIndex;
                 EditorGUI.BeginChangeCheck();
                 Vector3 waypointPosition = EditorGUILayout.Vector3Field(
                     $"Waypoint {index}",
-                    editState.WaypointLocalPositions[index]);
+                    ActiveEditState.WaypointLocalPositions[index]);
 
                 if (EditorGUI.EndChangeCheck())
                 {
@@ -291,21 +528,21 @@ namespace FlowBlast.Editor
                             settings.GridCellSize);
                     }
 
-                    editState.SetWaypointPosition(index, waypointPosition);
+                    ActiveEditState.SetWaypointPosition(index, waypointPosition);
                 }
 
-                EditorGUILayout.LabelField("Curve Preview", $"{editState.CurveStrength:0.00}");
+                EditorGUILayout.LabelField("Curve Preview", $"{ActiveEditState.CurveStrength:0.00}");
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     if (GUILayout.Button("Up") && index > 0)
                     {
-                        editState.SwapWaypoints(index, index - 1);
+                        ActiveEditState.SwapWaypoints(index, index - 1);
                     }
 
-                    if (GUILayout.Button("Down") && index < editState.WaypointLocalPositions.Count - 1)
+                    if (GUILayout.Button("Down") && index < ActiveEditState.WaypointLocalPositions.Count - 1)
                     {
-                        editState.SwapWaypoints(index, index + 1);
+                        ActiveEditState.SwapWaypoints(index, index + 1);
                     }
 
                     if (GUILayout.Button("Delete"))
@@ -321,7 +558,7 @@ namespace FlowBlast.Editor
 
             if (settings != null)
             {
-                EditorGUILayout.LabelField("Block Capacity", editState.GetBlockCapacity(settings).ToString());
+                EditorGUILayout.LabelField("Block Capacity", ActiveEditState.GetBlockCapacity(settings).ToString());
             }
         }
 
@@ -357,10 +594,17 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            beltPath = (BeltPath)EditorGUILayout.ObjectField("Belt Path", beltPath, typeof(BeltPath), true);
+            beltPath = (BeltPath)EditorGUILayout.ObjectField("Main Belt Path", beltPath, typeof(BeltPath), true);
             boxQueueParent = (Transform)EditorGUILayout.ObjectField("Box Queue", boxQueueParent, typeof(Transform), true);
 
-            using (new EditorGUI.DisabledScope(beltPath == null))
+            EditorGUILayout.LabelField("Queue Belt Paths", EditorStyles.miniBoldLabel);
+
+            for (int i = 0; i < queueBeltPaths.Count; i++)
+            {
+                queueBeltPaths[i] = (BeltPath)EditorGUILayout.ObjectField($"Queue {i + 1:00}", queueBeltPaths[i], typeof(BeltPath), true);
+            }
+
+            using (new EditorGUI.DisabledScope(GetActiveBeltPath() == null))
             {
                 using (new EditorGUILayout.HorizontalScope())
                 {
@@ -371,10 +615,43 @@ namespace FlowBlast.Editor
 
                     if (GUILayout.Button("Import From Scene"))
                     {
-                        editState.LoadFromScene(beltPath, boxQueueParent);
+                        ImportActivePathFromScene();
                         ShowNotification(new GUIContent("Imported from scene"));
                     }
                 }
+            }
+        }
+
+        private void AddQueuePathTab()
+        {
+            int queueNumber = queueEditStates.Count + 1;
+            string queueId = $"Queue_{queueNumber:00}";
+            string displayName = $"Queue {queueNumber:00}";
+            MapLayoutEditState editState = new MapLayoutEditState();
+            editState.InitializeQueueIdentity(queueId, displayName);
+            editState.SetBoxQueuePosition(mainEditState.BoxQueueLocalPosition);
+            queueEditStates.Add(editState);
+            activeQueueIndex = queueEditStates.Count - 1;
+            isBoxQueueSelected = false;
+        }
+
+        private void RemoveActiveQueuePathTab()
+        {
+            if (activeQueueIndex < 0 || activeQueueIndex >= queueEditStates.Count)
+            {
+                return;
+            }
+
+            queueEditStates.RemoveAt(activeQueueIndex);
+
+            if (activeQueueIndex >= queueEditStates.Count)
+            {
+                activeQueueIndex = queueEditStates.Count - 1;
+            }
+
+            if (queueEditStates.Count == 0)
+            {
+                activeQueueIndex = -1;
             }
         }
 
@@ -383,14 +660,14 @@ namespace FlowBlast.Editor
             float step = settings != null ? settings.GridCellSize : 0.4f;
             Vector3 localPosition = Vector3.zero;
 
-            if (editState.SelectedWaypointIndex >= 0
-                && editState.SelectedWaypointIndex < editState.WaypointLocalPositions.Count)
+            if (ActiveEditState.SelectedWaypointIndex >= 0
+                && ActiveEditState.SelectedWaypointIndex < ActiveEditState.WaypointLocalPositions.Count)
             {
-                localPosition = editState.WaypointLocalPositions[editState.SelectedWaypointIndex] + Vector3.forward * step;
+                localPosition = ActiveEditState.WaypointLocalPositions[ActiveEditState.SelectedWaypointIndex] + Vector3.forward * step;
             }
-            else if (editState.WaypointLocalPositions.Count > 0)
+            else if (ActiveEditState.WaypointLocalPositions.Count > 0)
             {
-                localPosition = editState.WaypointLocalPositions[^1] + Vector3.forward * step;
+                localPosition = ActiveEditState.WaypointLocalPositions[^1] + Vector3.forward * step;
             }
 
             if (settings != null && settings.SnapToGrid)
@@ -398,42 +675,55 @@ namespace FlowBlast.Editor
                 localPosition = BeltPathEditorUtility.SnapLocalPosition(localPosition, settings.GridCellSize);
             }
 
-            editState.AddWaypoint(localPosition);
+            ActiveEditState.AddWaypoint(localPosition);
         }
 
         private void RemoveSelectedWaypoint()
         {
-            if (editState.SelectedWaypointIndex < 0)
+            if (ActiveEditState.SelectedWaypointIndex < 0)
             {
                 return;
             }
 
-            editState.RemoveWaypoint(editState.SelectedWaypointIndex);
+            ActiveEditState.RemoveWaypoint(ActiveEditState.SelectedWaypointIndex);
         }
 
         private void ApplyPreset(Vector3[] localPositions, bool isClosedLoop)
         {
-            editState.ApplyPreset(localPositions, isClosedLoop);
+            ActiveEditState.ApplyPreset(localPositions, isClosedLoop);
         }
 
-        private void ReloadEditStateFromAsset()
+        private void ReloadEditStates()
         {
             if (layoutAsset == null)
             {
-                if (trackedLayoutAsset != null)
-                {
-                    editState.Clear();
-                }
-
+                ImportAllFromScene();
                 trackedLayoutAsset = null;
                 isBoxQueueSelected = false;
                 Repaint();
                 return;
             }
 
-            editState.LoadFrom(layoutAsset);
+            mainEditState.LoadMainPath(layoutAsset);
+            queueEditStates.Clear();
+
+            for (int i = 0; i < layoutAsset.QueuePaths.Count; i++)
+            {
+                QueuePathLayout queuePath = layoutAsset.QueuePaths[i];
+
+                if (queuePath == null)
+                {
+                    continue;
+                }
+
+                MapLayoutEditState queueState = new MapLayoutEditState();
+                queueState.LoadQueuePath(layoutAsset, queuePath.QueueId, queuePath.DisplayName);
+                queueEditStates.Add(queueState);
+            }
+
             trackedLayoutAsset = layoutAsset;
             isBoxQueueSelected = false;
+            ClampActiveQueueIndex();
             Repaint();
         }
 
@@ -445,7 +735,24 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            editState.WriteTo(layoutAsset);
+            mainEditState.WriteMainPathTo(layoutAsset);
+
+            for (int i = 0; i < queueEditStates.Count; i++)
+            {
+                queueEditStates[i].WriteQueuePathTo(layoutAsset);
+            }
+
+            HashSet<string> validQueueIds = new HashSet<string>();
+
+            for (int i = 0; i < queueEditStates.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(queueEditStates[i].QueueId))
+                {
+                    validQueueIds.Add(queueEditStates[i].QueueId);
+                }
+            }
+
+            layoutAsset.RemoveMissingQueuePaths(validQueueIds);
             EditorUtility.SetDirty(layoutAsset);
             AssetDatabase.SaveAssets();
             SyncMapLayoutBinder(layoutAsset);
@@ -454,35 +761,100 @@ namespace FlowBlast.Editor
 
         private void ApplyEditStateToScene()
         {
-            if (beltPath == null)
+            BeltPath activePath = GetActiveBeltPath();
+
+            if (activePath == null)
             {
                 return;
             }
 
-            Undo.RecordObject(beltPath, "Apply Map Layout To Scene");
+            Undo.RecordObject(activePath, "Apply Map Layout To Scene");
             BeltWaypointMarker waypointPrefab = LoadWaypointPrefab();
-            beltPath.ApplyLocalWaypoints(
-                editState.WaypointLocalPositions,
-                editState.IsClosedLoop,
-                editState.CurveStrength,
+            activePath.ApplyLocalWaypoints(
+                ActiveEditState.WaypointLocalPositions,
+                ActiveEditState.IsClosedLoop,
+                ActiveEditState.CurveStrength,
                 waypointPrefab);
 
             if (boxQueueParent != null)
             {
                 Undo.RecordObject(boxQueueParent, "Apply Box Queue Position");
-                boxQueueParent.localPosition = editState.BoxQueueLocalPosition;
+                boxQueueParent.localPosition = ActiveEditState.BoxQueueLocalPosition;
                 EditorUtility.SetDirty(boxQueueParent);
             }
 
             if (layoutAsset != null)
             {
-                editState.WriteTo(layoutAsset);
-                EditorUtility.SetDirty(layoutAsset);
+                SaveLayoutToAsset();
             }
 
-            EditorUtility.SetDirty(beltPath);
-            MarkSceneDirty();
-            ShowNotification(new GUIContent("Applied to scene"));
+            EditorUtility.SetDirty(activePath);
+            MarkSceneDirty(activePath);
+            ShowNotification(new GUIContent($"Applied {ActivePathDisplayName}"));
+        }
+
+        private void ImportActivePathFromScene()
+        {
+            BeltPath activePath = GetActiveBeltPath();
+
+            if (activePath == null)
+            {
+                return;
+            }
+
+            ActiveEditState.LoadFromScene(activePath, boxQueueParent);
+            SyncSharedQueuePosition();
+        }
+
+        private void ImportAllFromScene()
+        {
+            if (beltPath != null)
+            {
+                mainEditState.LoadFromScene(beltPath, boxQueueParent);
+            }
+            else
+            {
+                mainEditState.Clear();
+            }
+
+            queueEditStates.Clear();
+
+            for (int i = 0; i < queueBeltPaths.Count; i++)
+            {
+                if (queueBeltPaths[i] == null)
+                {
+                    continue;
+                }
+
+                MapLayoutEditState queueState = new MapLayoutEditState();
+                queueState.LoadFromScene(queueBeltPaths[i], boxQueueParent);
+                queueEditStates.Add(queueState);
+            }
+
+            SyncSharedQueuePosition();
+            ClampActiveQueueIndex();
+        }
+
+        private void SyncSharedQueuePosition()
+        {
+            Vector3 queuePosition = mainEditState.BoxQueueLocalPosition;
+
+            if (activeQueueIndex >= 0 && activeQueueIndex < queueEditStates.Count)
+            {
+                queuePosition = queueEditStates[activeQueueIndex].BoxQueueLocalPosition;
+            }
+
+            SetSharedQueuePosition(queuePosition);
+        }
+
+        private void SetSharedQueuePosition(Vector3 queuePosition)
+        {
+            mainEditState.SetBoxQueuePosition(queuePosition);
+
+            for (int i = 0; i < queueEditStates.Count; i++)
+            {
+                queueEditStates[i].SetBoxQueuePosition(queuePosition);
+            }
         }
 
         private void CreateLayoutAssetQuick()
@@ -491,7 +863,12 @@ namespace FlowBlast.Editor
 
             string assetPath = AssetDatabase.GenerateUniqueAssetPath($"{DefaultLayoutFolder}/MapLayout.asset");
             LevelMapLayout layout = ScriptableObject.CreateInstance<LevelMapLayout>();
-            editState.WriteTo(layout);
+            mainEditState.WriteMainPathTo(layout);
+
+            for (int i = 0; i < queueEditStates.Count; i++)
+            {
+                queueEditStates[i].WriteQueuePathTo(layout);
+            }
 
             AssetDatabase.CreateAsset(layout, assetPath);
             AssetDatabase.SaveAssets();
@@ -510,12 +887,35 @@ namespace FlowBlast.Editor
 
         private void TryLoadLayoutFromBinder()
         {
-            if (layoutAsset != null || beltPath == null)
+            if (layoutAsset != null)
             {
                 return;
             }
 
-            MapLayoutBinder binder = beltPath.GetComponentInParent<MapLayoutBinder>();
+            MapLayoutBinder binder = null;
+
+            if (beltPath != null)
+            {
+                binder = beltPath.GetComponentInParent<MapLayoutBinder>();
+            }
+
+            if (binder == null)
+            {
+                for (int i = 0; i < queueBeltPaths.Count; i++)
+                {
+                    if (queueBeltPaths[i] == null)
+                    {
+                        continue;
+                    }
+
+                    binder = queueBeltPaths[i].GetComponentInParent<MapLayoutBinder>();
+
+                    if (binder != null)
+                    {
+                        break;
+                    }
+                }
+            }
 
             if (binder == null)
             {
@@ -528,12 +928,35 @@ namespace FlowBlast.Editor
 
         private void SyncMapLayoutBinder(LevelMapLayout layout)
         {
-            if (beltPath == null || layout == null)
+            if (layout == null)
             {
                 return;
             }
 
-            MapLayoutBinder binder = beltPath.GetComponentInParent<MapLayoutBinder>();
+            MapLayoutBinder binder = null;
+
+            if (beltPath != null)
+            {
+                binder = beltPath.GetComponentInParent<MapLayoutBinder>();
+            }
+
+            if (binder == null)
+            {
+                for (int i = 0; i < queueBeltPaths.Count; i++)
+                {
+                    if (queueBeltPaths[i] == null)
+                    {
+                        continue;
+                    }
+
+                    binder = queueBeltPaths[i].GetComponentInParent<MapLayoutBinder>();
+
+                    if (binder != null)
+                    {
+                        break;
+                    }
+                }
+            }
 
             if (binder == null)
             {
@@ -546,14 +969,14 @@ namespace FlowBlast.Editor
             EditorUtility.SetDirty(binder);
         }
 
-        private void MarkSceneDirty()
+        private void MarkSceneDirty(BeltPath activePath)
         {
-            if (beltPath == null || Application.isPlaying)
+            if (activePath == null || Application.isPlaying)
             {
                 return;
             }
 
-            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(beltPath.gameObject.scene);
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(activePath.gameObject.scene);
         }
 
         private static BeltWaypointMarker LoadWaypointPrefab()
