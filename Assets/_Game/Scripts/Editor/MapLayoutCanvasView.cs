@@ -14,6 +14,12 @@ namespace FlowBlast.Editor
         private const float MaxZoom = 80f;
         private const float WaypointHitRadius = 12f;
         private const float QueueHitRadius = 14f;
+        private const float VisibleAreaMinX = -4f;
+        private const float VisibleAreaMaxX = 4f;
+        private const float VisibleAreaMinZ = 0f;
+        private const float VisibleAreaMaxZ = 4f;
+        private static readonly Color VisibleAreaFillColor = new Color(0.2f, 0.7f, 1f, 0.08f);
+        private static readonly Color VisibleAreaOutlineColor = new Color(0.2f, 0.7f, 1f, 0.85f);
 
         private static readonly int CanvasControlId = "MapLayoutCanvas".GetHashCode();
 
@@ -70,6 +76,7 @@ namespace FlowBlast.Editor
 
             Handles.BeginGUI();
             DrawGrid(rect, settings, zoom, pan);
+            DrawVisibleArea(rect, zoom, pan);
 
             IReadOnlyList<Vector3> samples = editState.GetSampledPath();
 
@@ -125,6 +132,25 @@ namespace FlowBlast.Editor
             Handles.color = new Color(1f, 1f, 1f, 0.25f);
             Handles.DrawLine(new Vector3(rect.xMin, origin.y), new Vector3(rect.xMax, origin.y));
             Handles.DrawLine(new Vector3(origin.x, rect.yMin), new Vector3(origin.x, rect.yMax));
+        }
+
+        private static void DrawVisibleArea(Rect rect, float zoom, Vector2 pan)
+        {
+            Vector3 bottomLeft = new Vector3(VisibleAreaMinX, 0f, VisibleAreaMinZ);
+            Vector3 topLeft = new Vector3(VisibleAreaMinX, 0f, VisibleAreaMaxZ);
+            Vector3 topRight = new Vector3(VisibleAreaMaxX, 0f, VisibleAreaMaxZ);
+            Vector3 bottomRight = new Vector3(VisibleAreaMaxX, 0f, VisibleAreaMinZ);
+
+            Vector3[] vertices =
+            {
+                WorldToCanvas(bottomLeft, rect, zoom, pan),
+                WorldToCanvas(topLeft, rect, zoom, pan),
+                WorldToCanvas(topRight, rect, zoom, pan),
+                WorldToCanvas(bottomRight, rect, zoom, pan)
+            };
+
+            Handles.DrawSolidRectangleWithOutline(vertices, VisibleAreaFillColor, VisibleAreaOutlineColor);
+            Handles.Label((Vector2)vertices[2] + new Vector2(8f, -18f), "Visible Area");
         }
 
         private static void DrawPath(Rect rect, IReadOnlyList<Vector3> samples, Color color, float zoom, Vector2 pan)

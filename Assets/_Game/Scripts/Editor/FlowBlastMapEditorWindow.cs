@@ -11,6 +11,9 @@ namespace FlowBlast.Editor
     {
         private const string DefaultLayoutFolder = "Assets/_Game/Data/MapLayouts";
         private const string WaypointPrefabPath = "Assets/_Game/Prefabs/BeltWaypointMarker.prefab";
+        private const float CanvasMinHeight = 420f;
+        private const float BottomPanelHeight = 220f;
+        private const float SectionSpacing = 8f;
 
         private static FlowBlastMapEditorWindow instance;
 
@@ -107,15 +110,11 @@ namespace FlowBlast.Editor
         {
             settings = (MapEditorSettings)EditorGUILayout.ObjectField("Editor Settings", settings, typeof(MapEditorSettings), false);
             DrawLayoutAssetField();
-
             DrawToolbar();
 
-            EditorGUILayout.Space(4f);
-
-            Rect canvasRect = GUILayoutUtility.GetRect(10f, 10f, GUILayout.ExpandWidth(true), GUILayout.MinHeight(360f), GUILayout.ExpandHeight(true));
-            MapLayoutCanvasView.Draw(canvasRect, editState, settings, ref canvasZoom, ref canvasPan, ref isBoxQueueSelected);
-
-            EditorGUILayout.Space(4f);
+            EditorGUILayout.Space(SectionSpacing);
+            DrawCanvas();
+            EditorGUILayout.Space(SectionSpacing);
             DrawBottomPanel();
         }
 
@@ -171,9 +170,25 @@ namespace FlowBlast.Editor
             }
         }
 
+        private void DrawCanvas()
+        {
+            float availableHeight = position.height
+                - EditorGUIUtility.singleLineHeight * 2f
+                - BottomPanelHeight
+                - SectionSpacing * 4f;
+            float canvasHeight = Mathf.Max(CanvasMinHeight, availableHeight);
+            Rect canvasRect = GUILayoutUtility.GetRect(
+                10f,
+                canvasHeight,
+                GUILayout.ExpandWidth(true),
+                GUILayout.Height(canvasHeight));
+
+            MapLayoutCanvasView.Draw(canvasRect, editState, settings, ref canvasZoom, ref canvasPan, ref isBoxQueueSelected);
+        }
+
         private void DrawBottomPanel()
         {
-            using (var scroll = new EditorGUILayout.ScrollViewScope(sidebarScrollPosition, GUILayout.MaxHeight(220f)))
+            using (var scroll = new EditorGUILayout.ScrollViewScope(sidebarScrollPosition, GUILayout.Height(BottomPanelHeight)))
             {
                 sidebarScrollPosition = scroll.scrollPosition;
 
