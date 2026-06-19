@@ -20,7 +20,7 @@ namespace FlowBlast.Data
         [SerializeField] private int editorGridRows = 5;
         [SerializeField] private float editorGridCellSpacing = 1f;
         [SerializeField] private List<LevelBoxPlacement> boxPlacements = new List<LevelBoxPlacement>();
-        [SerializeField] private List<BoxVisualProfile> blockSequence = new List<BoxVisualProfile>();
+        [SerializeField] private List<LevelBlockSequenceItem> blockSequenceItems = new List<LevelBlockSequenceItem>();
         [SerializeField] private List<BoxDefinition> boxQueue = new List<BoxDefinition>();
 
         public string LevelId => levelId;
@@ -35,9 +35,11 @@ namespace FlowBlast.Data
         public int EditorGridRows => editorGridRows;
         public float EditorGridCellSpacing => editorGridCellSpacing;
         public IReadOnlyList<LevelBoxPlacement> BoxPlacements => boxPlacements;
-        public IReadOnlyList<BoxVisualProfile> BlockSequence => autoBuildBlockSequenceFromBoxes
-            ? LevelBlockSequenceBuilder.BuildFromPlacements(boxPlacements, beltLaneCount, BoxCapacity)
-            : blockSequence;
+        public IReadOnlyList<LevelBlockSequenceItem> BlockSequenceItems => autoBuildBlockSequenceFromBoxes
+            ? LevelBlockSequenceBuilder.BuildItemsFromPlacements(boxPlacements, beltLaneCount, BoxCapacity)
+            : blockSequenceItems;
+        public IReadOnlyList<LevelBlockSpawnRow> BlockSpawnRows =>
+            LevelBlockSequenceBuilder.BuildRowsFromItems(BlockSequenceItems, beltLaneCount);
         public int TotalBlockCount => GetTotalBlockCount();
 
         public void OnBeforeSerialize()
@@ -51,7 +53,8 @@ namespace FlowBlast.Data
 
         private int GetTotalBlockCount()
         {
-            return boxPlacements.Count * BoxCapacity;
+            IReadOnlyList<LevelBlockSequenceItem> sequenceItems = BlockSequenceItems;
+            return sequenceItems != null ? sequenceItems.Count : 0;
         }
 
         private void MigrateLegacyBoxQueue()

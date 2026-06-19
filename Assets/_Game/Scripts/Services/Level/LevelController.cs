@@ -75,7 +75,7 @@ namespace FlowBlast.Services.Level
             beltMovementService.SetSpeed(levelData.BeltSpeed);
             boxConveyorMovementService.SetSpeed(levelData.BeltSpeed);
             boxConveyorMovementService.Reset();
-            blockSpawnService.LoadSequence(levelData.BlockSequence);
+            blockSpawnService.LoadSequence(levelData.BlockSpawnRows);
         }
 
         public void Tick(float deltaTime)

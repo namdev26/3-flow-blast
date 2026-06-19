@@ -21,6 +21,11 @@ namespace FlowBlast.Editor
         private const float GridColorPreviewSize = 18f;
         private const float VisualPaletteButtonSize = 26f;
         private const float VisualPalettePanelWidth = 152f;
+        private const float SequenceCanvasHeight = 360f;
+        private const float SequenceCanvasMinZoom = 26f;
+        private const float SequenceCanvasMaxZoom = 120f;
+        private const float SequenceSlotHitRadius = 10f;
+        private const int SequenceRegionBlockCount = 80;
         private const int DefaultGridWidth = 5;
         private const int DefaultGridHeight = 5;
 
@@ -30,6 +35,7 @@ namespace FlowBlast.Editor
         private GameplayInstaller gameplayInstaller;
         private SerializedObject serializedLevelData;
         private SerializedProperty boxPlacementsProperty;
+        private SerializedProperty blockSequenceItemsProperty;
         private SerializedProperty beltLaneCountProperty;
         private SerializedProperty editorGridColumnsProperty;
         private SerializedProperty editorGridRowsProperty;
@@ -45,8 +51,13 @@ namespace FlowBlast.Editor
         private bool eraseMode;
         private bool showSettings = true;
         private bool showGridAuthoring = true;
+        private bool showSpawnAuthoring = true;
         private bool showBlockPreview = true;
+        private bool showPathPainting = true;
         private bool isSaveRequested;
+        private float sequenceCanvasZoom = 42f;
+        private Vector2 sequenceCanvasPan = new Vector2(0f, -2f);
+        private int selectedSequenceRegionIndex;
         private List<BoxVisualProfile> cachedVisualProfiles;
 
         public static bool IsOpen => instance != null;
@@ -115,6 +126,7 @@ namespace FlowBlast.Editor
             gameplayInstaller = FindFirstObjectByType<GameplayInstaller>();
             RefreshSerializedData();
             selectedPlacementIndex = Mathf.Clamp(selectedPlacementIndex, -1, GetPlacementCount() - 1);
+            ClampSelectedSequenceRegion();
             SyncGridSettingsFromSerializedData();
         }
 
@@ -124,6 +136,7 @@ namespace FlowBlast.Editor
             {
                 serializedLevelData = null;
                 boxPlacementsProperty = null;
+                blockSequenceItemsProperty = null;
                 beltLaneCountProperty = null;
                 editorGridColumnsProperty = null;
                 editorGridRowsProperty = null;
@@ -132,6 +145,7 @@ namespace FlowBlast.Editor
 
             serializedLevelData = new SerializedObject(levelData);
             boxPlacementsProperty = serializedLevelData.FindProperty("boxPlacements");
+            blockSequenceItemsProperty = serializedLevelData.FindProperty("blockSequenceItems");
             beltLaneCountProperty = serializedLevelData.FindProperty("beltLaneCount");
             editorGridColumnsProperty = serializedLevelData.FindProperty("editorGridColumns");
             editorGridRowsProperty = serializedLevelData.FindProperty("editorGridRows");
@@ -161,6 +175,10 @@ namespace FlowBlast.Editor
                 DrawSettingsSection();
                 EditorGUILayout.Space(6f);
                 DrawGridAuthoringSection();
+                EditorGUILayout.Space(6f);
+                DrawSequenceAuthoringSection();
+                EditorGUILayout.Space(6f);
+                DrawSequenceCanvasSection();
                 EditorGUILayout.Space(6f);
                 DrawSummarySection();
             }
@@ -314,6 +332,64 @@ namespace FlowBlast.Editor
             }
         }
 
+        private void DrawSequenceAuthoringSection()
+        {
+            showSpawnAuthoring = EditorGUILayout.Foldout(showSpawnAuthoring, "Block Sequence Authoring", true);
+
+            if (!showSpawnAuthoring)
+            {
+                return;
+            }
+
+            bool isAutoBuild = serializedLevelData.FindProperty("autoBuildBlockSequenceFromBoxes")?.boolValue ?? true;
+
+            if (isAutoBuild)
+            {
+                EditorGUILayout.HelpBox("Block sequence items are auto-built from box placements. Disable auto-build in Level Settings to author exact block-by-block spawn order manually.", MessageType.Info);
+                return;
+            }
+
+            EditorGUILayout.HelpBox("Detailed block list has been hidden. Use the path canvas below to build and paint large regions only.", MessageType.None);
+        }
+
+        private void DrawSequenceCanvasSection()
+        {
+            EditorGUILayout.LabelField("Sequence Path Canvas", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Số khu vực trên path sẽ bằng đúng số box. Mỗi khu vực đại diện cho 1 box color region, mặc định chưa có màu. Chỉ cần click khu vực rồi chọn màu để fill.", MessageType.None);
+
+            int regionCount = GetSequenceRegionCount();
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Build Regions From Boxes", GUILayout.Width(148f)))
+                {
+                    BuildSequenceRegionsFromBoxes();
+                }
+
+                if (GUILayout.Button("Reset View", GUILayout.Width(92f)))
+                {
+                    sequenceCanvasZoom = 42f;
+                    sequenceCanvasPan = new Vector2(0f, -2f);
+                    GUI.FocusControl(null);
+                }
+
+                GUILayout.Space(8f);
+                EditorGUILayout.LabelField("Region", GUILayout.Width(44f));
+                selectedSequenceRegionIndex = Mathf.Clamp(
+                    EditorGUILayout.IntSlider(selectedSequenceRegionIndex + 1, 1, Mathf.Max(1, regionCount)) - 1,
+                    0,
+                    Mathf.Max(0, regionCount - 1));
+
+                GUILayout.FlexibleSpace();
+                EditorGUILayout.LabelField($"Zoom: {sequenceCanvasZoom:0}", GUILayout.Width(72f));
+            }
+
+            DrawSequenceRegionTabs(regionCount);
+            Rect canvasRect = GUILayoutUtility.GetRect(10f, SequenceCanvasHeight, GUILayout.ExpandWidth(true), GUILayout.Height(SequenceCanvasHeight));
+            DrawSequenceCanvas(canvasRect);
+
+            DrawSelectedRegionFillControls();
+        }
+
         private void DrawGridSettings()
         {
             EditorGUILayout.LabelField("Grid Size", EditorStyles.boldLabel);
@@ -442,8 +518,9 @@ namespace FlowBlast.Editor
         {
             EditorGUILayout.LabelField("Summary", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Box Count", GetPlacementCount().ToString());
-            EditorGUILayout.LabelField("Total Blocks", GetTotalBlockCountFromSerializedData().ToString());
-            EditorGUILayout.LabelField("Sequence Rows", levelData.BlockSequence.Count.ToString());
+            EditorGUILayout.LabelField("Total Blocks", levelData.TotalBlockCount.ToString());
+            EditorGUILayout.LabelField("Sequence Items", levelData.BlockSequenceItems.Count.ToString());
+            EditorGUILayout.LabelField("Spawn Rows", levelData.BlockSpawnRows.Count.ToString());
             EditorGUILayout.LabelField("Lane Count", beltLaneCountProperty.intValue.ToString());
 
             LevelMapLayout layout = mapLayoutProperty?.objectReferenceValue as LevelMapLayout;
@@ -451,6 +528,7 @@ namespace FlowBlast.Editor
 
             EditorGUI.BeginChangeCheck();
             showBlockPreview = EditorGUILayout.Toggle("Preview Blocks On Paths", showBlockPreview);
+            showPathPainting = EditorGUILayout.Toggle("Paint Sequence On Path", showPathPainting);
 
             if (EditorGUI.EndChangeCheck())
             {
@@ -672,7 +750,8 @@ namespace FlowBlast.Editor
                 brushVisualProfile,
                 profile => brushVisualProfile = profile,
                 false,
-                "Choose brush color");
+                "Choose brush color",
+                false);
         }
 
         private void DrawSelectedPlacementVisualPalette(SerializedProperty placementProperty, SerializedProperty visualProfileProperty)
@@ -691,16 +770,18 @@ namespace FlowBlast.Editor
                     SyncPlacementColorFromVisualProfile(placementProperty);
                 },
                 true,
-                "Choose box color");
+                "Choose box color",
+                false);
         }
 
         private void DrawVisualProfilePalette(
             BoxVisualProfile selectedProfile,
             System.Action<BoxVisualProfile> onSelected,
             bool allowNone,
-            string tooltip)
+            string tooltip,
+            bool hideUsedInSequence)
         {
-            List<BoxVisualProfile> visualProfiles = GetVisualProfiles();
+            List<BoxVisualProfile> visualProfiles = GetVisualProfiles(hideUsedInSequence, selectedProfile);
             int buttonCount = allowNone ? visualProfiles.Count + 1 : visualProfiles.Count;
 
             if (buttonCount == 0)
@@ -763,28 +844,27 @@ namespace FlowBlast.Editor
             DrawCellOutline(buttonRect, isSelected ? Color.white : Color.black);
         }
 
-        private List<BoxVisualProfile> GetVisualProfiles()
+        private List<BoxVisualProfile> GetVisualProfiles(bool hideUsedInSequence = false, BoxVisualProfile selectedProfile = null)
         {
-            if (cachedVisualProfiles != null && cachedVisualProfiles.Count > 0)
+            if (cachedVisualProfiles == null || cachedVisualProfiles.Count == 0)
             {
-                return cachedVisualProfiles;
-            }
+                string[] profileGuids = AssetDatabase.FindAssets("t:ScriptableObject", new[] { BoxVisualProfileFolder });
+                cachedVisualProfiles = new List<BoxVisualProfile>(profileGuids.Length);
 
-            string[] profileGuids = AssetDatabase.FindAssets("t:ScriptableObject", new[] { BoxVisualProfileFolder });
-            cachedVisualProfiles = new List<BoxVisualProfile>(profileGuids.Length);
-
-            for (int i = 0; i < profileGuids.Length; i++)
-            {
-                string assetPath = AssetDatabase.GUIDToAssetPath(profileGuids[i]);
-                BoxVisualProfile profile = AssetDatabase.LoadAssetAtPath<BoxVisualProfile>(assetPath);
-
-                if (profile != null)
+                for (int i = 0; i < profileGuids.Length; i++)
                 {
-                    cachedVisualProfiles.Add(profile);
+                    string assetPath = AssetDatabase.GUIDToAssetPath(profileGuids[i]);
+                    BoxVisualProfile profile = AssetDatabase.LoadAssetAtPath<BoxVisualProfile>(assetPath);
+
+                    if (profile != null)
+                    {
+                        cachedVisualProfiles.Add(profile);
+                    }
                 }
+
+                cachedVisualProfiles.Sort((left, right) => string.CompareOrdinal(left.name, right.name));
             }
 
-            cachedVisualProfiles.Sort((left, right) => string.CompareOrdinal(left.name, right.name));
             return cachedVisualProfiles;
         }
 
@@ -871,14 +951,116 @@ namespace FlowBlast.Editor
 
         private int GetTotalBlockCountFromSerializedData()
         {
-            if (boxPlacementsProperty == null)
+            return levelData != null ? levelData.TotalBlockCount : 0;
+        }
+
+        private void AddSequenceItem()
+        {
+            serializedLevelData.Update();
+            int itemIndex = blockSequenceItemsProperty.arraySize;
+            blockSequenceItemsProperty.arraySize++;
+            CopySequenceItemProfile(itemIndex - 1, blockSequenceItemsProperty.GetArrayElementAtIndex(itemIndex));
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private void AddSequenceItemBatch(int count)
+        {
+            int safeCount = Mathf.Max(1, count);
+
+            for (int index = 0; index < safeCount; index++)
             {
-                return 0;
+                AddSequenceItem();
+            }
+        }
+
+        private void EnsureSequenceItemCount(int targetCount)
+        {
+            int safeTargetCount = Mathf.Max(0, targetCount);
+
+            if (blockSequenceItemsProperty == null)
+            {
+                return;
             }
 
-            SerializedProperty boxCapacityProperty = serializedLevelData.FindProperty("boxCapacity");
-            int safeBoxCapacity = Mathf.Max(1, boxCapacityProperty != null ? boxCapacityProperty.intValue : GameConstants.DefaultBoxCapacity);
-            return boxPlacementsProperty.arraySize * safeBoxCapacity;
+            serializedLevelData.Update();
+
+            while (blockSequenceItemsProperty.arraySize < safeTargetCount)
+            {
+                int itemIndex = blockSequenceItemsProperty.arraySize;
+                blockSequenceItemsProperty.arraySize++;
+                CopySequenceItemProfile(itemIndex - 1, blockSequenceItemsProperty.GetArrayElementAtIndex(itemIndex));
+            }
+
+            while (blockSequenceItemsProperty.arraySize > safeTargetCount)
+            {
+                blockSequenceItemsProperty.DeleteArrayElementAtIndex(blockSequenceItemsProperty.arraySize - 1);
+            }
+
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private void BuildSequenceRegionsFromBoxes()
+        {
+            int boxCount = Mathf.Max(0, GetPlacementCount());
+            EnsureSequenceItemCount(boxCount * SequenceRegionBlockCount);
+            ClampSelectedSequenceRegion();
+        }
+
+        private void InsertSequenceItem(int itemIndex)
+        {
+            serializedLevelData.Update();
+            blockSequenceItemsProperty.InsertArrayElementAtIndex(itemIndex);
+            CopySequenceItemProfile(itemIndex + 1, blockSequenceItemsProperty.GetArrayElementAtIndex(itemIndex));
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private void RemoveSequenceItem(int itemIndex)
+        {
+            serializedLevelData.Update();
+            blockSequenceItemsProperty.DeleteArrayElementAtIndex(itemIndex);
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private void ClearSequenceItems()
+        {
+            serializedLevelData.Update();
+            blockSequenceItemsProperty.ClearArray();
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private void CopySequenceItemProfile(int sourceItemIndex, SerializedProperty targetItemProperty)
+        {
+            if (targetItemProperty == null)
+            {
+                return;
+            }
+
+            SerializedProperty targetVisualProfileProperty = targetItemProperty.FindPropertyRelative("visualProfile");
+
+            if (targetVisualProfileProperty == null)
+            {
+                return;
+            }
+
+            if (sourceItemIndex < 0 || sourceItemIndex >= blockSequenceItemsProperty.arraySize)
+            {
+                targetVisualProfileProperty.objectReferenceValue = null;
+                return;
+            }
+
+            SerializedProperty sourceItemProperty = blockSequenceItemsProperty.GetArrayElementAtIndex(sourceItemIndex);
+            SerializedProperty sourceVisualProfileProperty = sourceItemProperty.FindPropertyRelative("visualProfile");
+            targetVisualProfileProperty.objectReferenceValue = sourceVisualProfileProperty?.objectReferenceValue;
         }
 
         private int AppendPlacement()
@@ -1065,9 +1247,19 @@ namespace FlowBlast.Editor
 
         private void DrawBlockPreviewOnPaths()
         {
-            IReadOnlyList<BoxVisualProfile> sequence = levelData.BlockSequence;
+            IReadOnlyList<LevelBlockSpawnRow> spawnRows = levelData.BlockSpawnRows;
 
-            if (sequence == null || sequence.Count == 0)
+            if (spawnRows == null || spawnRows.Count == 0)
+            {
+                return;
+            }
+
+            float rowSpacing = ResolveBlockRowSpacing();
+            int laneCount = levelData.BeltLaneCount;
+            float laneSpacing = rowSpacing;
+            int sequenceCursor = 0;
+
+            if (TryDrawPreviewFromMapLayout(spawnRows, rowSpacing, laneCount, laneSpacing, ref sequenceCursor))
             {
                 return;
             }
@@ -1079,26 +1271,13 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            float rowSpacing = ResolveBlockRowSpacing();
-            int laneCount = levelData.BeltLaneCount;
-            float laneSpacing = rowSpacing;
-            int sequenceCursor = 0;
-
-            LevelMapLayout layout = mapLayoutProperty?.objectReferenceValue as LevelMapLayout;
-
-            if (layout != null && layout.MainWaypointLocalPositions.Count >= 2)
-            {
-                DrawPreviewFromLayout(layout, mainPath.transform, sequence, ref sequenceCursor, rowSpacing, laneCount, laneSpacing);
-                return;
-            }
-
-            DrawBlockRowsOnPath(mainPath, sequence, ref sequenceCursor, rowSpacing, laneCount, laneSpacing, 0.9f);
+            DrawBlockRowsOnPath(mainPath, spawnRows, ref sequenceCursor, rowSpacing, laneCount, laneSpacing, 0.9f);
 
             List<BeltPath> queuePaths = ResolveSceneQueuePaths();
 
             for (int i = 0; i < queuePaths.Count; i++)
             {
-                if (sequenceCursor >= sequence.Count)
+                if (sequenceCursor >= spawnRows.Count)
                 {
                     break;
                 }
@@ -1110,14 +1289,33 @@ namespace FlowBlast.Editor
                     continue;
                 }
 
-                DrawBlockRowsOnPath(queuePath, sequence, ref sequenceCursor, rowSpacing, laneCount, laneSpacing, 0.65f);
+                DrawBlockRowsOnPath(queuePath, spawnRows, ref sequenceCursor, rowSpacing, laneCount, laneSpacing, 0.65f);
             }
+        }
+
+        private bool TryDrawPreviewFromMapLayout(
+            IReadOnlyList<LevelBlockSpawnRow> spawnRows,
+            float rowSpacing,
+            int laneCount,
+            float laneSpacing,
+            ref int sequenceCursor)
+        {
+            LevelMapLayout layout = mapLayoutProperty?.objectReferenceValue as LevelMapLayout;
+            BeltPath mainPath = ResolveMainBeltPath();
+
+            if (layout == null || mainPath == null || layout.MainWaypointLocalPositions.Count < 2)
+            {
+                return false;
+            }
+
+            DrawPreviewFromLayout(layout, mainPath.transform, spawnRows, ref sequenceCursor, rowSpacing, laneCount, laneSpacing);
+            return true;
         }
 
         private void DrawPreviewFromLayout(
             LevelMapLayout layout,
             Transform pathRootTransform,
-            IReadOnlyList<BoxVisualProfile> sequence,
+            IReadOnlyList<LevelBlockSpawnRow> spawnRows,
             ref int cursor,
             float rowSpacing,
             int laneCount,
@@ -1129,11 +1327,11 @@ namespace FlowBlast.Editor
                 layout.MainCurveStrength,
                 pathRootTransform);
 
-            DrawBlockRowsOnSampler(mainSampler, sequence, ref cursor, rowSpacing, laneCount, laneSpacing, 0.9f);
+            DrawBlockRowsOnSampler(mainSampler, spawnRows, ref cursor, rowSpacing, laneCount, laneSpacing, 0.9f);
 
             for (int i = 0; i < layout.QueuePaths.Count; i++)
             {
-                if (cursor >= sequence.Count)
+                if (cursor >= spawnRows.Count)
                 {
                     break;
                 }
@@ -1151,13 +1349,13 @@ namespace FlowBlast.Editor
                     queueLayout.CurveStrength,
                     pathRootTransform);
 
-                DrawBlockRowsOnSampler(queueSampler, sequence, ref cursor, rowSpacing, laneCount, laneSpacing, 0.65f);
+                DrawBlockRowsOnSampler(queueSampler, spawnRows, ref cursor, rowSpacing, laneCount, laneSpacing, 0.65f);
             }
         }
 
         private void DrawBlockRowsOnSampler(
             CatmullRomPathSampler sampler,
-            IReadOnlyList<BoxVisualProfile> sequence,
+            IReadOnlyList<LevelBlockSpawnRow> spawnRows,
             ref int cursor,
             float rowSpacing,
             int laneCount,
@@ -1170,25 +1368,17 @@ namespace FlowBlast.Editor
             }
 
             int rowCapacity = Mathf.FloorToInt(sampler.TotalLength / rowSpacing);
-            int rowsToShow = Mathf.Min(rowCapacity, sequence.Count - cursor);
+            int rowsToShow = Mathf.Min(rowCapacity, spawnRows.Count - cursor);
 
             for (int rowIndex = 0; rowIndex < rowsToShow; rowIndex++)
             {
-                BoxVisualProfile profile = sequence[cursor + rowIndex];
-                Color color = profile != null ? profile.TintColor : Color.gray;
-                color.a = alpha;
-                Handles.color = color;
-
+                LevelBlockSpawnRow spawnRow = spawnRows[cursor + rowIndex];
                 float rowDistance = rowIndex * rowSpacing;
                 Vector3 center = sampler.GetPositionAtDistance(rowDistance);
                 Quaternion rotation = sampler.GetRotationAtDistance(rowDistance);
                 float handleSize = HandleUtility.GetHandleSize(center) * 0.055f;
 
-                for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
-                {
-                    Vector3 lanePosition = BeltLaneLayout.GetLanePosition(center, rotation, laneIndex, laneCount, laneSpacing);
-                    Handles.DrawSolidDisc(lanePosition, rotation * Vector3.up, handleSize);
-                }
+                DrawSpawnRowPreview(spawnRow, center, rotation, laneCount, laneSpacing, handleSize, alpha);
             }
 
             cursor += rowsToShow;
@@ -1196,7 +1386,7 @@ namespace FlowBlast.Editor
 
         private void DrawBlockRowsOnPath(
             BeltPath path,
-            IReadOnlyList<BoxVisualProfile> sequence,
+            IReadOnlyList<LevelBlockSpawnRow> spawnRows,
             ref int cursor,
             float rowSpacing,
             int laneCount,
@@ -1204,28 +1394,618 @@ namespace FlowBlast.Editor
             float alpha)
         {
             int rowCapacity = Mathf.FloorToInt(path.TotalLength / rowSpacing);
-            int rowsToShow = Mathf.Min(rowCapacity, sequence.Count - cursor);
+            int rowsToShow = Mathf.Min(rowCapacity, spawnRows.Count - cursor);
 
             for (int rowIndex = 0; rowIndex < rowsToShow; rowIndex++)
             {
-                BoxVisualProfile profile = sequence[cursor + rowIndex];
-                Color color = profile != null ? profile.TintColor : Color.gray;
-                color.a = alpha;
-                Handles.color = color;
-
+                LevelBlockSpawnRow spawnRow = spawnRows[cursor + rowIndex];
                 float rowDistance = rowIndex * rowSpacing;
                 Vector3 center = path.GetPositionAtDistance(rowDistance);
                 Quaternion rotation = path.GetRotationAtDistance(rowDistance);
                 float handleSize = HandleUtility.GetHandleSize(center) * 0.055f;
 
-                for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
-                {
-                    Vector3 lanePosition = BeltLaneLayout.GetLanePosition(center, rotation, laneIndex, laneCount, laneSpacing);
-                    Handles.DrawSolidDisc(lanePosition, rotation * Vector3.up, handleSize);
-                }
+                DrawSpawnRowPreview(spawnRow, center, rotation, laneCount, laneSpacing, handleSize, alpha);
             }
 
             cursor += rowsToShow;
+        }
+
+        private void DrawSpawnRowPreview(
+            LevelBlockSpawnRow spawnRow,
+            Vector3 center,
+            Quaternion rotation,
+            int laneCount,
+            float laneSpacing,
+            float handleSize,
+            float alpha)
+        {
+            if (spawnRow == null)
+            {
+                return;
+            }
+
+            for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
+            {
+                BoxVisualProfile profile = spawnRow.GetLaneProfile(laneIndex);
+                Color color = profile != null ? profile.TintColor : Color.gray;
+                color.a = alpha;
+                Handles.color = color;
+                Vector3 lanePosition = BeltLaneLayout.GetLanePosition(center, rotation, laneIndex, laneCount, laneSpacing);
+                Handles.DrawSolidDisc(lanePosition, rotation * Vector3.up, handleSize);
+            }
+        }
+
+        private void DrawSequenceCanvas(Rect rect)
+        {
+            EditorGUI.DrawRect(rect, new Color(0.12f, 0.13f, 0.15f));
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                DrawSequenceCanvasGrid(rect);
+            }
+
+            HandleSequenceCanvasInput(rect);
+            DrawSequenceCanvasRegionOverlay(rect);
+            DrawSequenceCanvasPaths(rect);
+            DrawCellOutline(rect, new Color(1f, 1f, 1f, 0.08f));
+        }
+
+        private void DrawSequenceCanvasGrid(Rect rect)
+        {
+            Handles.BeginGUI();
+            Handles.color = new Color(1f, 1f, 1f, 0.06f);
+            float cellSize = GridCellSpacing;
+            int extent = 30;
+
+            for (int x = -extent; x <= extent; x++)
+            {
+                Vector2 start = SequenceWorldToCanvas(new Vector3(x * cellSize, 0f, -extent * cellSize), rect);
+                Vector2 end = SequenceWorldToCanvas(new Vector3(x * cellSize, 0f, extent * cellSize), rect);
+                Handles.DrawLine(start, end);
+            }
+
+            for (int z = -extent; z <= extent; z++)
+            {
+                Vector2 start = SequenceWorldToCanvas(new Vector3(-extent * cellSize, 0f, z * cellSize), rect);
+                Vector2 end = SequenceWorldToCanvas(new Vector3(extent * cellSize, 0f, z * cellSize), rect);
+                Handles.DrawLine(start, end);
+            }
+
+            Handles.EndGUI();
+        }
+
+        private void DrawSequenceCanvasRegionOverlay(Rect rect)
+        {
+            int regionStartIndex = GetSequenceRegionStartIndex(selectedSequenceRegionIndex);
+            int regionEndExclusive = Mathf.Min(regionStartIndex + SequenceRegionBlockCount, blockSequenceItemsProperty.arraySize);
+            BoxVisualProfile regionProfile = GetSequenceRegionProfile(selectedSequenceRegionIndex);
+            string regionStateLabel = regionProfile != null ? regionProfile.name : "Empty";
+            Rect labelRect = new Rect(rect.x + 12f, rect.y + 12f, 320f, 22f);
+            EditorGUI.DrawRect(labelRect, new Color(0f, 0f, 0f, 0.45f));
+            EditorGUI.LabelField(labelRect, $"Region {selectedSequenceRegionIndex + 1}  |  Blocks {regionStartIndex + 1}-{Mathf.Max(regionStartIndex + 1, regionEndExclusive)}  |  {regionStateLabel}", EditorStyles.whiteMiniLabel);
+        }
+
+        private void DrawSequenceRegionTabs(int regionCount)
+        {
+            if (regionCount <= 0)
+            {
+                return;
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                for (int regionIndex = 0; regionIndex < regionCount; regionIndex++)
+                {
+                    BoxVisualProfile regionProfile = GetSequenceRegionProfile(regionIndex);
+                    GUI.backgroundColor = regionProfile != null ? regionProfile.TintColor : Color.gray;
+                    bool isSelected = regionIndex == selectedSequenceRegionIndex;
+                    GUIStyle style = isSelected ? EditorStyles.miniButtonMid : EditorStyles.miniButton;
+
+                    if (GUILayout.Button($"R{regionIndex + 1}", style, GUILayout.Height(26f)))
+                    {
+                        selectedSequenceRegionIndex = regionIndex;
+                    }
+                }
+            }
+
+            GUI.backgroundColor = Color.white;
+        }
+
+        private void DrawSelectedRegionFillControls()
+        {
+            if (GetSequenceRegionCount() <= 0)
+            {
+                return;
+            }
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField($"Selected Region {selectedSequenceRegionIndex + 1}", EditorStyles.boldLabel);
+                BoxVisualProfile selectedRegionProfile = GetSequenceRegionProfile(selectedSequenceRegionIndex);
+                DrawInlineColorPreview(selectedRegionProfile != null ? selectedRegionProfile.TintColor : Color.gray);
+                EditorGUILayout.LabelField($"Region Size: {SequenceRegionBlockCount} blocks", EditorStyles.miniLabel);
+                DrawVisualProfilePalette(
+                    selectedRegionProfile,
+                    FillSequenceRegion,
+                    true,
+                    "Fill selected region",
+                    false);
+            }
+        }
+
+        private void HandleSequenceCanvasInput(Rect rect)
+        {
+            Event currentEvent = Event.current;
+
+            if (!rect.Contains(currentEvent.mousePosition))
+            {
+                return;
+            }
+
+            if (currentEvent.type == EventType.ScrollWheel)
+            {
+                float zoomDelta = -currentEvent.delta.y * 2f;
+                sequenceCanvasZoom = Mathf.Clamp(sequenceCanvasZoom + zoomDelta, SequenceCanvasMinZoom, SequenceCanvasMaxZoom);
+                currentEvent.Use();
+                Repaint();
+                return;
+            }
+
+            if (currentEvent.type == EventType.MouseDrag && currentEvent.button == 2)
+            {
+                sequenceCanvasPan += currentEvent.delta / sequenceCanvasZoom;
+                currentEvent.Use();
+                Repaint();
+            }
+        }
+
+        private void DrawSequenceCanvasPaths(Rect rect)
+        {
+            if (levelData == null || blockSequenceItemsProperty == null || blockSequenceItemsProperty.arraySize == 0)
+            {
+                return;
+            }
+
+            int laneCount = GetLaneCount();
+            float rowSpacing = ResolveBlockRowSpacing();
+            float laneSpacing = rowSpacing;
+            int sequenceCursor = 0;
+            int regionStartIndex = GetSequenceRegionStartIndex(selectedSequenceRegionIndex);
+            int regionEndExclusive = Mathf.Min(regionStartIndex + SequenceRegionBlockCount, blockSequenceItemsProperty.arraySize);
+
+            if (TryDrawCanvasFromMapLayout(rect, laneCount, rowSpacing, laneSpacing, ref sequenceCursor, regionStartIndex, regionEndExclusive))
+            {
+                return;
+            }
+
+            BeltPath mainPath = ResolveMainBeltPath();
+
+            if (mainPath == null || mainPath.TotalLength <= Mathf.Epsilon)
+            {
+                return;
+            }
+
+            DrawCanvasPathSequence(
+                rect,
+                distance => mainPath.GetPositionAtDistance(distance),
+                distance => mainPath.GetRotationAtDistance(distance),
+                mainPath.TotalLength,
+                laneCount,
+                rowSpacing,
+                laneSpacing,
+                0.9f,
+                ref sequenceCursor,
+                regionStartIndex,
+                regionEndExclusive);
+
+            List<BeltPath> queuePaths = ResolveSceneQueuePaths();
+
+            for (int pathIndex = 0; pathIndex < queuePaths.Count; pathIndex++)
+            {
+                if (sequenceCursor >= levelData.BlockSequenceItems.Count)
+                {
+                    break;
+                }
+
+                BeltPath queuePath = queuePaths[pathIndex];
+
+                if (queuePath == null || queuePath.TotalLength <= Mathf.Epsilon)
+                {
+                    continue;
+                }
+
+                DrawCanvasPathSequence(
+                    rect,
+                    distance => queuePath.GetPositionAtDistance(distance),
+                    distance => queuePath.GetRotationAtDistance(distance),
+                    queuePath.TotalLength,
+                    laneCount,
+                    rowSpacing,
+                    laneSpacing,
+                    0.65f,
+                    ref sequenceCursor,
+                    regionStartIndex,
+                    regionEndExclusive);
+            }
+        }
+
+        private bool TryDrawCanvasFromMapLayout(
+            Rect rect,
+            int laneCount,
+            float rowSpacing,
+            float laneSpacing,
+            ref int sequenceCursor,
+            int regionStartIndex,
+            int regionEndExclusive)
+        {
+            LevelMapLayout layout = mapLayoutProperty?.objectReferenceValue as LevelMapLayout;
+            BeltPath mainPath = ResolveMainBeltPath();
+
+            if (layout == null || mainPath == null || layout.MainWaypointLocalPositions.Count < 2)
+            {
+                return false;
+            }
+
+            CatmullRomPathSampler mainSampler = BuildSamplerFromLocalWaypoints(
+                layout.MainWaypointLocalPositions,
+                layout.IsMainPathClosedLoop,
+                layout.MainCurveStrength,
+                mainPath.transform);
+            DrawCanvasPathSequence(
+                rect,
+                distance => mainSampler.GetPositionAtDistance(distance),
+                distance => mainSampler.GetRotationAtDistance(distance),
+                mainSampler.TotalLength,
+                laneCount,
+                rowSpacing,
+                laneSpacing,
+                0.9f,
+                ref sequenceCursor,
+                regionStartIndex,
+                regionEndExclusive);
+
+            for (int pathIndex = 0; pathIndex < layout.QueuePaths.Count; pathIndex++)
+            {
+                if (sequenceCursor >= levelData.BlockSequenceItems.Count)
+                {
+                    break;
+                }
+
+                QueuePathLayout queueLayout = layout.QueuePaths[pathIndex];
+
+                if (queueLayout == null || queueLayout.WaypointLocalPositions.Count < 2)
+                {
+                    continue;
+                }
+
+                CatmullRomPathSampler queueSampler = BuildSamplerFromLocalWaypoints(
+                    queueLayout.WaypointLocalPositions,
+                    queueLayout.IsClosedLoop,
+                    queueLayout.CurveStrength,
+                    mainPath.transform);
+                DrawCanvasPathSequence(
+                    rect,
+                    distance => queueSampler.GetPositionAtDistance(distance),
+                    distance => queueSampler.GetRotationAtDistance(distance),
+                    queueSampler.TotalLength,
+                    laneCount,
+                    rowSpacing,
+                    laneSpacing,
+                    0.65f,
+                    ref sequenceCursor,
+                    regionStartIndex,
+                    regionEndExclusive);
+            }
+
+            return true;
+        }
+
+        private void DrawCanvasPathSequence(
+            Rect rect,
+            System.Func<float, Vector3> getPositionAtDistance,
+            System.Func<float, Quaternion> getRotationAtDistance,
+            float pathLength,
+            int laneCount,
+            float rowSpacing,
+            float laneSpacing,
+            float alpha,
+            ref int sequenceCursor,
+            int regionStartIndex,
+            int regionEndExclusive)
+        {
+            if (pathLength <= Mathf.Epsilon)
+            {
+                return;
+            }
+
+            DrawCanvasPathLine(rect, getPositionAtDistance, pathLength, alpha);
+            int rowCapacity = Mathf.FloorToInt(pathLength / rowSpacing);
+            int availableRows = Mathf.Min(rowCapacity, Mathf.CeilToInt((levelData.BlockSequenceItems.Count - sequenceCursor) / (float)laneCount));
+            int pathStartBlockIndex = sequenceCursor;
+            int pathEndBlockExclusive = sequenceCursor + availableRows * laneCount;
+
+            DrawCanvasRegionSegments(
+                rect,
+                getPositionAtDistance,
+                getRotationAtDistance,
+                availableRows,
+                rowSpacing,
+                laneSpacing,
+                laneCount,
+                alpha,
+                pathStartBlockIndex,
+                pathEndBlockExclusive,
+                regionStartIndex,
+                regionEndExclusive);
+
+            sequenceCursor += availableRows * laneCount;
+        }
+
+        private void DrawCanvasPathLine(
+            Rect rect,
+            System.Func<float, Vector3> getPositionAtDistance,
+            float pathLength,
+            float alpha)
+        {
+            Handles.BeginGUI();
+            Handles.color = new Color(1f, 1f, 1f, alpha * 0.2f);
+            int previewSteps = Mathf.Max(24, Mathf.FloorToInt(pathLength / GridCellSpacing));
+            Vector2 previousPoint = Vector2.zero;
+            bool hasPrevious = false;
+
+            for (int step = 0; step <= previewSteps; step++)
+            {
+                float distance = pathLength * step / previewSteps;
+                Vector2 canvasPoint = SequenceWorldToCanvas(getPositionAtDistance(distance), rect);
+
+                if (hasPrevious)
+                {
+                    Handles.DrawLine(previousPoint, canvasPoint);
+                }
+
+                previousPoint = canvasPoint;
+                hasPrevious = true;
+            }
+
+            Handles.EndGUI();
+        }
+
+        private void DrawCanvasRegionSegments(
+            Rect rect,
+            System.Func<float, Vector3> getPositionAtDistance,
+            System.Func<float, Quaternion> getRotationAtDistance,
+            int availableRows,
+            float rowSpacing,
+            float laneSpacing,
+            int laneCount,
+            float alpha,
+            int pathStartBlockIndex,
+            int pathEndBlockExclusive,
+            int selectedRegionStartIndex,
+            int selectedRegionEndExclusive)
+        {
+            if (availableRows <= 0)
+            {
+                return;
+            }
+
+            int firstRegionIndex = GetSequenceRegionIndexFromBlockIndex(pathStartBlockIndex);
+            int lastRegionIndex = GetSequenceRegionIndexFromBlockIndex(Mathf.Max(pathStartBlockIndex, pathEndBlockExclusive - 1));
+
+            for (int regionIndex = firstRegionIndex; regionIndex <= lastRegionIndex; regionIndex++)
+            {
+                int regionBlockStart = GetSequenceRegionStartIndex(regionIndex);
+                int regionBlockEnd = Mathf.Min(regionBlockStart + SequenceRegionBlockCount, blockSequenceItemsProperty.arraySize);
+                int visibleBlockStart = Mathf.Max(regionBlockStart, pathStartBlockIndex);
+                int visibleBlockEnd = Mathf.Min(regionBlockEnd, pathEndBlockExclusive);
+
+                if (visibleBlockEnd <= visibleBlockStart)
+                {
+                    continue;
+                }
+
+                int startRowInPath = (visibleBlockStart - pathStartBlockIndex) / laneCount;
+                int endRowInPath = Mathf.Max(startRowInPath, Mathf.CeilToInt((visibleBlockEnd - pathStartBlockIndex) / (float)laneCount) - 1);
+                float startDistance = startRowInPath * rowSpacing;
+                float endDistance = Mathf.Min(availableRows * rowSpacing, endRowInPath * rowSpacing);
+                BoxVisualProfile regionProfile = GetSequenceRegionProfile(regionIndex);
+                Color regionColor = regionProfile != null ? regionProfile.TintColor : new Color(0.3f, 0.3f, 0.3f, 0.9f);
+                regionColor.a = alpha;
+                bool isSelected = regionIndex == selectedSequenceRegionIndex;
+                bool isPartial = visibleBlockStart > regionBlockStart || visibleBlockEnd < regionBlockEnd;
+
+                DrawCanvasRegionSegment(
+                    rect,
+                    getPositionAtDistance,
+                    getRotationAtDistance,
+                    startDistance,
+                    endDistance,
+                    laneSpacing,
+                    regionColor,
+                    regionIndex,
+                    isSelected,
+                    isPartial,
+                    visibleBlockStart,
+                    selectedRegionStartIndex,
+                    selectedRegionEndExclusive);
+            }
+        }
+
+        private void DrawCanvasRegionSegment(
+            Rect rect,
+            System.Func<float, Vector3> getPositionAtDistance,
+            System.Func<float, Quaternion> getRotationAtDistance,
+            float startDistance,
+            float endDistance,
+            float laneSpacing,
+            Color regionColor,
+            int regionIndex,
+            bool isSelected,
+            bool isPartial,
+            int visibleBlockStart,
+            int selectedRegionStartIndex,
+            int selectedRegionEndExclusive)
+        {
+            float safeEndDistance = Mathf.Max(startDistance, endDistance);
+            int sampleCount = Mathf.Max(2, Mathf.CeilToInt((safeEndDistance - startDistance) / Mathf.Max(0.25f, laneSpacing)) + 1);
+            Vector2 labelPoint = Vector2.zero;
+            bool labelPointAssigned = false;
+
+            Handles.BeginGUI();
+            Handles.color = regionColor;
+
+            for (int sampleIndex = 0; sampleIndex < sampleCount - 1; sampleIndex++)
+            {
+                float fromDistance = Mathf.Lerp(startDistance, safeEndDistance, sampleIndex / (float)(sampleCount - 1));
+                float toDistance = Mathf.Lerp(startDistance, safeEndDistance, (sampleIndex + 1) / (float)(sampleCount - 1));
+                Vector3 fromCenter = getPositionAtDistance(fromDistance);
+                Vector3 toCenter = getPositionAtDistance(toDistance);
+                Quaternion fromRotation = getRotationAtDistance(fromDistance);
+                Quaternion toRotation = getRotationAtDistance(toDistance);
+                Vector3 fromLeft = BeltLaneLayout.GetLanePosition(fromCenter, fromRotation, 0, 2, laneSpacing * 2.2f);
+                Vector3 fromRight = BeltLaneLayout.GetLanePosition(fromCenter, fromRotation, 1, 2, laneSpacing * 2.2f);
+                Vector3 toLeft = BeltLaneLayout.GetLanePosition(toCenter, toRotation, 0, 2, laneSpacing * 2.2f);
+                Vector3 toRight = BeltLaneLayout.GetLanePosition(toCenter, toRotation, 1, 2, laneSpacing * 2.2f);
+                Vector3[] quad = new Vector3[]
+                {
+                    SequenceWorldToCanvas(fromLeft, rect),
+                    SequenceWorldToCanvas(fromRight, rect),
+                    SequenceWorldToCanvas(toRight, rect),
+                    SequenceWorldToCanvas(toLeft, rect)
+                };
+                Handles.DrawAAConvexPolygon(quad);
+
+                if (!labelPointAssigned && sampleIndex >= (sampleCount - 1) / 2)
+                {
+                    labelPoint = SequenceWorldToCanvas((fromCenter + toCenter) * 0.5f, rect);
+                    labelPointAssigned = true;
+                }
+            }
+
+            Handles.color = isSelected ? Color.white : new Color(0f, 0f, 0f, 0.8f);
+            Handles.DrawAAPolyLine(isSelected ? 4f : 2f, BuildRegionPolyline(rect, getPositionAtDistance, startDistance, safeEndDistance, sampleCount));
+            Handles.EndGUI();
+
+            Rect hitRect = new Rect(labelPoint.x - 28f, labelPoint.y - 14f, 56f, 28f);
+
+            if (Event.current.type == EventType.MouseDown
+                && Event.current.button == 0
+                && hitRect.Contains(Event.current.mousePosition))
+            {
+                selectedSequenceRegionIndex = Mathf.Clamp(regionIndex, 0, Mathf.Max(0, GetSequenceRegionCount() - 1));
+
+                if (brushVisualProfile != null)
+                {
+                    FillSequenceRegion(brushVisualProfile);
+                }
+
+                Event.current.Use();
+                Repaint();
+            }
+
+            GUIStyle labelStyle = new GUIStyle(EditorStyles.whiteMiniLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = Color.white },
+                fontStyle = FontStyle.Bold
+            };
+            string partialSuffix = isPartial ? "*" : string.Empty;
+            GUI.Label(new Rect(labelPoint.x - 20f, labelPoint.y - 10f, 40f, 20f), $"R{regionIndex + 1}{partialSuffix}", labelStyle);
+        }
+
+        private void FillSequenceRegion(BoxVisualProfile visualProfile)
+        {
+            if (blockSequenceItemsProperty == null)
+            {
+                return;
+            }
+
+            int regionStartIndex = GetSequenceRegionStartIndex(selectedSequenceRegionIndex);
+            int regionEndExclusive = Mathf.Min(regionStartIndex + SequenceRegionBlockCount, blockSequenceItemsProperty.arraySize);
+            serializedLevelData.Update();
+
+            for (int itemIndex = regionStartIndex; itemIndex < regionEndExclusive; itemIndex++)
+            {
+                SerializedProperty itemProperty = blockSequenceItemsProperty.GetArrayElementAtIndex(itemIndex);
+                SerializedProperty visualProfileProperty = itemProperty.FindPropertyRelative("visualProfile");
+                visualProfileProperty.objectReferenceValue = visualProfile;
+            }
+
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+        }
+
+        private int GetSequenceRegionCount()
+        {
+            int regionCountFromSequence = blockSequenceItemsProperty != null ? Mathf.CeilToInt(blockSequenceItemsProperty.arraySize / (float)SequenceRegionBlockCount) : 0;
+            return Mathf.Max(GetPlacementCount(), regionCountFromSequence, 1);
+        }
+
+        private int GetSequenceRegionStartIndex(int regionIndex)
+        {
+            return Mathf.Max(0, regionIndex) * SequenceRegionBlockCount;
+        }
+
+        private BoxVisualProfile GetSequenceRegionProfile(int regionIndex)
+        {
+            if (blockSequenceItemsProperty == null)
+            {
+                return null;
+            }
+
+            int regionStartIndex = GetSequenceRegionStartIndex(regionIndex);
+
+            if (regionStartIndex < 0 || regionStartIndex >= blockSequenceItemsProperty.arraySize)
+            {
+                return null;
+            }
+
+            SerializedProperty itemProperty = blockSequenceItemsProperty.GetArrayElementAtIndex(regionStartIndex);
+            SerializedProperty visualProfileProperty = itemProperty.FindPropertyRelative("visualProfile");
+            return visualProfileProperty.objectReferenceValue as BoxVisualProfile;
+        }
+
+        private Vector3[] BuildRegionPolyline(
+            Rect rect,
+            System.Func<float, Vector3> getPositionAtDistance,
+            float startDistance,
+            float endDistance,
+            int sampleCount)
+        {
+            int safeSampleCount = Mathf.Max(2, sampleCount);
+            Vector3[] points = new Vector3[safeSampleCount];
+
+            for (int sampleIndex = 0; sampleIndex < safeSampleCount; sampleIndex++)
+            {
+                float distance = Mathf.Lerp(startDistance, endDistance, sampleIndex / (float)(safeSampleCount - 1));
+                Vector2 canvasPoint = SequenceWorldToCanvas(getPositionAtDistance(distance), rect);
+                points[sampleIndex] = new Vector3(canvasPoint.x, canvasPoint.y, 0f);
+            }
+
+            return points;
+        }
+
+        private int GetSequenceRegionIndexFromBlockIndex(int blockIndex)
+        {
+            return blockIndex < 0 ? 0 : blockIndex / SequenceRegionBlockCount;
+        }
+
+        private int GetLaneCount()
+        {
+            return Mathf.Max(1, levelData != null ? levelData.BeltLaneCount : GameConstants.BeltLaneCount);
+        }
+
+        private void ClampSelectedSequenceRegion()
+        {
+            selectedSequenceRegionIndex = Mathf.Clamp(selectedSequenceRegionIndex, 0, Mathf.Max(0, GetSequenceRegionCount() - 1));
+        }
+
+        private Vector2 SequenceWorldToCanvas(Vector3 localPosition, Rect rect)
+        {
+            float x = rect.center.x + (localPosition.x + sequenceCanvasPan.x) * sequenceCanvasZoom;
+            float y = rect.center.y - (localPosition.z + sequenceCanvasPan.y) * sequenceCanvasZoom;
+            return new Vector2(x, y);
         }
 
         private static CatmullRomPathSampler BuildSamplerFromLocalWaypoints(

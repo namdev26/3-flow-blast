@@ -17,7 +17,7 @@ namespace FlowBlast.Editor
         private SerializedProperty boxCapacityProperty;
         private SerializedProperty autoBuildBlockSequenceFromBoxesProperty;
         private SerializedProperty boxPlacementsProperty;
-        private SerializedProperty blockSequenceProperty;
+        private SerializedProperty blockSequenceItemsProperty;
         private int selectedPlacementIndex = -1;
 
         private void OnEnable()
@@ -30,7 +30,7 @@ namespace FlowBlast.Editor
             boxCapacityProperty = serializedObject.FindProperty("boxCapacity");
             autoBuildBlockSequenceFromBoxesProperty = serializedObject.FindProperty("autoBuildBlockSequenceFromBoxes");
             boxPlacementsProperty = serializedObject.FindProperty("boxPlacements");
-            blockSequenceProperty = serializedObject.FindProperty("blockSequence");
+            blockSequenceItemsProperty = serializedObject.FindProperty("blockSequenceItems");
         }
 
         public override void OnInspectorGUI()
@@ -166,11 +166,11 @@ namespace FlowBlast.Editor
 
             if (isAutoBuild)
             {
-                EditorGUILayout.HelpBox("Block sequence is generated automatically from box capacities and colors.", MessageType.None);
+                EditorGUILayout.HelpBox("Block sequence items are generated automatically from box placements. Turn this off to author exact per-block spawn order manually.", MessageType.None);
                 return;
             }
 
-            EditorGUILayout.PropertyField(blockSequenceProperty, true);
+            EditorGUILayout.PropertyField(blockSequenceItemsProperty, true);
         }
 
         private void DrawSummarySection()
@@ -179,7 +179,7 @@ namespace FlowBlast.Editor
             EditorGUILayout.LabelField("Level Summary", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Box Count", levelData.BoxPlacements.Count.ToString());
             EditorGUILayout.LabelField("Generated Block Count", levelData.TotalBlockCount.ToString());
-            EditorGUILayout.LabelField("Preview Sequence Rows", levelData.BlockSequence.Count.ToString());
+            EditorGUILayout.LabelField("Preview Sequence Items", levelData.BlockSequenceItems.Count.ToString());
             EditorGUILayout.HelpBox("Assign this LevelData to GameplayInstaller and press Play to test that level in-scene immediately.", MessageType.Info);
         }
 

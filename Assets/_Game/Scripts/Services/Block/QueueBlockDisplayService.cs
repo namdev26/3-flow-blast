@@ -33,7 +33,7 @@ namespace FlowBlast.Services.Block
             laneSpacing = laneSpc;
         }
 
-        public void Refresh(IReadOnlyList<BoxVisualProfile> sequence, int fromIndex)
+        public void Refresh(IReadOnlyList<LevelBlockSpawnRow> spawnRows, int fromIndex)
         {
             if (fromIndex == lastRefreshedFromIndex)
             {
@@ -43,7 +43,7 @@ namespace FlowBlast.Services.Block
             lastRefreshedFromIndex = fromIndex;
             ReleaseAllDisplayedBlocks();
 
-            if (queuePaths == null || queuePaths.Count == 0 || sequence == null)
+            if (queuePaths == null || queuePaths.Count == 0 || spawnRows == null)
             {
                 return;
             }
@@ -60,18 +60,18 @@ namespace FlowBlast.Services.Block
                 }
 
                 int rowCapacity = GetRowCapacityForPath(path);
-                int remaining = sequence.Count - sequenceCursor;
+                int remaining = spawnRows.Count - sequenceCursor;
                 int rowsToDisplay = Mathf.Min(rowCapacity, remaining);
 
                 for (int rowIndex = 0; rowIndex < rowsToDisplay; rowIndex++)
                 {
-                    BoxVisualProfile profile = sequence[sequenceCursor + rowIndex];
-                    SpawnQueueRow(profile, path, rowIndex * rowSpacing);
+                    LevelBlockSpawnRow spawnRow = spawnRows[sequenceCursor + rowIndex];
+                    SpawnQueueRow(spawnRow, path, rowIndex * rowSpacing);
                 }
 
                 sequenceCursor += rowsToDisplay;
 
-                if (sequenceCursor >= sequence.Count)
+                if (sequenceCursor >= spawnRows.Count)
                 {
                     break;
                 }
@@ -84,10 +84,22 @@ namespace FlowBlast.Services.Block
             lastRefreshedFromIndex = -1;
         }
 
-        private void SpawnQueueRow(BoxVisualProfile profile, IBeltPath path, float rowDistance)
+        private void SpawnQueueRow(LevelBlockSpawnRow spawnRow, IBeltPath path, float rowDistance)
         {
+            if (spawnRow == null)
+            {
+                return;
+            }
+
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
+                BoxVisualProfile profile = spawnRow.GetLaneProfile(laneIndex);
+
+                if (profile == null)
+                {
+                    continue;
+                }
+
                 BlockModel model = blockFactory.CreateModel(profile);
 
                 if (!blockFactory.TryCreateView(model, out BlockView view))

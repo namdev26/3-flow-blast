@@ -21,7 +21,7 @@ namespace FlowBlast.Services.Block
         private readonly BoxBlastService boxBlastService;
 
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
-        private readonly List<BoxVisualProfile> blockSequence = new List<BoxVisualProfile>();
+        private readonly List<LevelBlockSpawnRow> blockSpawnRows = new List<LevelBlockSpawnRow>();
 
         private int sequenceIndex;
         private int blocksInFlightCount;
@@ -78,12 +78,12 @@ namespace FlowBlast.Services.Block
             }
         }
 
-        public void LoadSequence(IReadOnlyList<BoxVisualProfile> sequence)
+        public void LoadSequence(IReadOnlyList<LevelBlockSpawnRow> spawnRows)
         {
             queueDisplayService?.Clear();
             ClearActiveBlocks();
             blockFactory.RecyclePool();
-            blockSequence.Clear();
+            blockSpawnRows.Clear();
             sequenceIndex = 0;
             blocksInFlightCount = 0;
 
@@ -97,11 +97,11 @@ namespace FlowBlast.Services.Block
                 Debug.LogWarning("[FlowBlast] Belt path length is 0. Assign at least 2 waypoints on BeltPath.");
             }
 
-            if (sequence != null)
+            if (spawnRows != null)
             {
-                for (int i = 0; i < sequence.Count; i++)
+                for (int i = 0; i < spawnRows.Count; i++)
                 {
-                    blockSequence.Add(sequence[i]);
+                    blockSpawnRows.Add(spawnRows[i]);
                 }
             }
 
@@ -153,7 +153,7 @@ namespace FlowBlast.Services.Block
 
         public bool HasRemainingSequence()
         {
-            return sequenceIndex < blockSequence.Count;
+            return sequenceIndex < blockSpawnRows.Count;
         }
 
         private void PrewarmBelt()
@@ -167,14 +167,14 @@ namespace FlowBlast.Services.Block
 
             while (missingRows > 0 && HasRemainingSequence())
             {
-                if (!TryConsumeNextProfile(out BoxVisualProfile visualProfile))
+                if (!TryConsumeNextRow(out LevelBlockSpawnRow spawnRow))
                 {
                     break;
                 }
 
                 float spawnDistance = GetNextSpawnDistance();
 
-                if (!SpawnRow(visualProfile, spawnDistance))
+                if (!SpawnRow(spawnRow, spawnDistance))
                 {
                     break;
                 }
@@ -182,7 +182,7 @@ namespace FlowBlast.Services.Block
                 missingRows--;
             }
 
-            queueDisplayService?.Refresh(blockSequence, sequenceIndex);
+            queueDisplayService?.Refresh(blockSpawnRows, sequenceIndex);
         }
 
         private int GetMissingRowCount()
@@ -228,12 +228,24 @@ namespace FlowBlast.Services.Block
             return minimumDistance - rowSpacing;
         }
 
-        private bool SpawnRow(BoxVisualProfile visualProfile, float rowDistance)
+        private bool SpawnRow(LevelBlockSpawnRow spawnRow, float rowDistance)
         {
+            if (spawnRow == null)
+            {
+                return false;
+            }
+
             bool spawnedAny = false;
 
             for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
             {
+                BoxVisualProfile visualProfile = spawnRow.GetLaneProfile(laneIndex);
+
+                if (visualProfile == null)
+                {
+                    continue;
+                }
+
                 BlockModel model = blockFactory.CreateModel(visualProfile);
 
                 if (!blockFactory.TryCreateView(model, out BlockView view))
@@ -266,19 +278,19 @@ namespace FlowBlast.Services.Block
             }
         }
 
-        private bool TryConsumeNextProfile(out BoxVisualProfile visualProfile)
+        private bool TryConsumeNextRow(out LevelBlockSpawnRow spawnRow)
         {
-            visualProfile = null;
+            spawnRow = null;
 
-            if (sequenceIndex >= blockSequence.Count)
+            if (sequenceIndex >= blockSpawnRows.Count)
             {
                 return false;
             }
 
-            visualProfile = blockSequence[sequenceIndex];
+            spawnRow = blockSpawnRows[sequenceIndex];
             sequenceIndex++;
 
-            return visualProfile != null;
+            return spawnRow != null;
         }
 
         private readonly struct BlockRuntimeEntry

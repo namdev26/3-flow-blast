@@ -441,7 +441,7 @@ namespace FlowBlast.Bootstrap
 
             float spacing = BlockBeltLayout.CalculateSpacing(blockPrefab);
             int laneCount = Mathf.Max(1, levelData.BeltLaneCount);
-            int sequenceBlockCount = levelData.BlockSequence.Count * laneCount;
+            int sequenceBlockCount = levelData.TotalBlockCount;
             int mainCapacity = BeltLaneLayout.GetTotalBlockCapacity(beltPath.TotalLength, spacing, laneCount);
             int queueCapacity = GetQueueDisplayCapacity(spacing, laneCount);
             int recommendedPoolSize = Mathf.Max(sequenceBlockCount, mainCapacity + queueCapacity);
