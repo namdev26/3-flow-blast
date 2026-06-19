@@ -139,10 +139,7 @@ namespace FlowBlast.Presentation.Box
             conveyorSlotIndex = -1;
             beltDistance = 0f;
 
-            if (beltParent != null)
-            {
-                transform.SetParent(beltParent, true);
-            }
+            AttachToRuntimeParent(beltParent);
 
             if (model != null && model.IsHidden)
             {
@@ -162,10 +159,7 @@ namespace FlowBlast.Presentation.Box
             conveyorSlotIndex = slotIndex;
             beltDistance = slotDistance;
 
-            if (boxConveyorParent != null)
-            {
-                transform.SetParent(boxConveyorParent, true);
-            }
+            AttachToRuntimeParent(boxConveyorParent);
 
             RefreshPresentation();
             UpdateBoxConveyorTransform();
@@ -200,12 +194,12 @@ namespace FlowBlast.Presentation.Box
             Action onComplete)
         {
             isFlyingToConveyor = true;
+            ReparentToConveyorForFlight();
+
             Vector3 startPosition = transform.position;
             Quaternion startRotation = transform.rotation;
-            Vector3 startVisualScale = GetBoardVisualScale();
-            Vector3 targetVisualScale = GetConveyorVisualScale();
-            ApplyBoxVisualScale(startVisualScale);
-
+            Vector3 startScale = transform.localScale;
+            Vector3 targetScale = Vector3.one;
             float elapsed = 0f;
             float safeDuration = Mathf.Max(0.01f, duration);
 
@@ -220,13 +214,13 @@ namespace FlowBlast.Presentation.Box
                 transform.SetPositionAndRotation(
                     flatPosition + Vector3.up * arcOffset,
                     startRotation);
-                ApplyBoxVisualScale(Vector3.Lerp(startVisualScale, targetVisualScale, smoothTime));
+                transform.localScale = Vector3.Lerp(startScale, targetScale, smoothTime);
                 yield return null;
             }
 
             Vector3 landingTarget = getTargetPosition();
             transform.SetPositionAndRotation(landingTarget, startRotation);
-            ApplyBoxVisualScale(targetVisualScale);
+            transform.localScale = targetScale;
             isFlyingToConveyor = false;
             flyCoroutine = null;
             onComplete?.Invoke();
@@ -336,31 +330,46 @@ namespace FlowBlast.Presentation.Box
                 beltDistance);
         }
 
-        private Vector3 GetBoardVisualScale()
+        private void AttachToRuntimeParent(Transform targetParent)
         {
-            if (defaultBoxVisualScale != Vector3.zero)
-            {
-                return defaultBoxVisualScale;
-            }
-
-            float boardScale = GameConstants.BoxBoardVisualScale;
-            return new Vector3(boardScale, boardScale, boardScale);
-        }
-
-        private static Vector3 GetConveyorVisualScale()
-        {
-            float conveyorScale = GameConstants.BoxConveyorVisualScale;
-            return new Vector3(conveyorScale, conveyorScale, conveyorScale);
-        }
-
-        private void ApplyBoxVisualScale(Vector3 scale)
-        {
-            if (boxVisualTransform == null)
+            if (targetParent == null)
             {
                 return;
             }
 
-            boxVisualTransform.localScale = scale;
+            transform.SetParent(targetParent, true);
+            transform.localScale = Vector3.one;
         }
+
+        private void ReparentToConveyorForFlight()
+        {
+            if (boxConveyorParent == null)
+            {
+                return;
+            }
+
+            Vector3 worldPosition = transform.position;
+            Quaternion worldRotation = transform.rotation;
+            Vector3 worldScale = transform.lossyScale;
+            transform.SetParent(boxConveyorParent, true);
+            transform.SetPositionAndRotation(worldPosition, worldRotation);
+            transform.localScale = DivideVector3(worldScale, boxConveyorParent.lossyScale);
+        }
+
+        private static Vector3 DivideVector3(Vector3 numerator, Vector3 denominator)
+        {
+            return new Vector3(
+                SafeDivide(numerator.x, denominator.x),
+                SafeDivide(numerator.y, denominator.y),
+                SafeDivide(numerator.z, denominator.z));
+        }
+
+        private static float SafeDivide(float numerator, float denominator)
+        {
+            return Mathf.Abs(denominator) > Mathf.Epsilon
+                ? numerator / denominator
+                : numerator;
+        }
+
     }
 }

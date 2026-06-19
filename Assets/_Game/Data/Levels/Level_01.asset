@@ -22,7 +22,7 @@ MonoBehaviour:
   autoBuildBlockSequenceFromBoxes: 1
   editorGridColumns: 3
   editorGridRows: 3
-  editorGridCellSpacing: 1.25
+  editorGridCellSpacing: 1
   boxPlacements:
   - localPosition: {x: -1, y: 0, z: 1}
     color: 2

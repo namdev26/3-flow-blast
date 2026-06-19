@@ -29,6 +29,9 @@ namespace FlowBlast.Bootstrap
         private const string DefaultPalettePath = "Assets/_Game/Data/BlockColorPalette.asset";
         private const string DefaultBlockPrefabPath = "Assets/_Game/Prefabs/PixelBlock.prefab";
         private const string DefaultBoxPrefabPath = "Assets/_Game/Prefabs/Box.prefab";
+        private const int ExpandedBoardColumnThreshold = 5;
+        private const float ExpandedBoardRootScale = 1.4f;
+        private const float DenseBoardRootScale = 1f;
 
         [Header("Data")]
         [SerializeField] private LevelData levelData;
@@ -53,6 +56,7 @@ namespace FlowBlast.Bootstrap
         [SerializeField] private TapInputController tapInputController;
 
         private GameplayContext context;
+        private Vector3 initialBoardRootScale = Vector3.one;
 
         public GameplayContext Context => context;
 
@@ -214,7 +218,11 @@ namespace FlowBlast.Bootstrap
             collectionPointMarker = ResolveSceneParent(collectionPointMarker, GameplayZoneNames.CollectionPointMarker);
             blockPoolParent = ResolveSceneParent(blockPoolParent, GameplayZoneNames.BlockPoolParent);
             boxBeltParent = ResolveSceneParent(boxBeltParent, GameplayZoneNames.BoxBeltParent);
-            boardRoot = ResolveSceneParent(boardRoot, GameplayZoneNames.BoardRoot);
+
+            if (boardRoot != null)
+            {
+                initialBoardRootScale = boardRoot.localScale;
+            }
 
             if (presentationCoordinator == null)
             {
@@ -283,6 +291,12 @@ namespace FlowBlast.Bootstrap
             if (blockPoolParent == null || boxBeltParent == null)
             {
                 Debug.LogError("[FlowBlast] Missing scene parents (BlockPoolParent / BoxBeltParent).");
+                return false;
+            }
+
+            if (boardRoot == null)
+            {
+                Debug.LogError("[FlowBlast] Missing BoardRoot reference. Assign the board root Transform in GameplayInstaller.");
                 return false;
             }
 
@@ -549,6 +563,8 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
+            ApplyBoardRootScale();
+
             BoardBoxSpawnService boardBoxSpawnService = new BoardBoxSpawnService(context.BoxFactory, boardRoot);
             boardBoxSpawnService.SpawnLevelBoxes(
                 levelData.BoxPlacements,
@@ -562,6 +578,43 @@ namespace FlowBlast.Bootstrap
         private void RegisterCreatedBoxViews()
         {
             RegisterBoxViewsUnder(boardRoot);
+        }
+
+        private void ApplyBoardRootScale()
+        {
+            if (boardRoot == null)
+            {
+                return;
+            }
+
+            float targetScale = ResolveBoardRootScale(levelData != null ? levelData.BoxPlacements : null);
+            boardRoot.localScale = initialBoardRootScale * targetScale;
+        }
+
+        private float ResolveBoardRootScale(IReadOnlyList<LevelBoxPlacement> boxPlacements)
+        {
+            int horizontalBoxCount = GetHorizontalBoxCount(boxPlacements);
+            return horizontalBoxCount <= ExpandedBoardColumnThreshold
+                ? ExpandedBoardRootScale
+                : DenseBoardRootScale;
+        }
+
+        private static int GetHorizontalBoxCount(IReadOnlyList<LevelBoxPlacement> boxPlacements)
+        {
+            if (boxPlacements == null || boxPlacements.Count == 0)
+            {
+                return 0;
+            }
+
+            HashSet<int> occupiedColumns = new HashSet<int>();
+
+            for (int i = 0; i < boxPlacements.Count; i++)
+            {
+                int columnKey = Mathf.RoundToInt(boxPlacements[i].LocalPosition.x * 1000f);
+                occupiedColumns.Add(columnKey);
+            }
+
+            return occupiedColumns.Count;
         }
 
         private void RegisterBoxViewsUnder(Transform parent)

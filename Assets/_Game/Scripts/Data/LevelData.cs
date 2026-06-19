@@ -18,7 +18,7 @@ namespace FlowBlast.Data
         [SerializeField] private bool autoBuildBlockSequenceFromBoxes = true;
         [SerializeField] private int editorGridColumns = 5;
         [SerializeField] private int editorGridRows = 5;
-        [SerializeField] private float editorGridCellSpacing = 1.5f;
+        [SerializeField] private float editorGridCellSpacing = 1f;
         [SerializeField] private List<LevelBoxPlacement> boxPlacements = new List<LevelBoxPlacement>();
         [SerializeField] private List<BoxVisualProfile> blockSequence = new List<BoxVisualProfile>();
         [SerializeField] private List<BoxDefinition> boxQueue = new List<BoxDefinition>();

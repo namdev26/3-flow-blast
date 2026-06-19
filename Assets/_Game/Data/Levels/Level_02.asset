@@ -17,54 +17,136 @@ MonoBehaviour:
   maxBeltSlots: 2
   maxBacklogBlocks: 12
   beltLaneCount: 4
+  boxCapacity: 80
+  mapLayout: {fileID: 0}
   autoBuildBlockSequenceFromBoxes: 1
+  editorGridColumns: 5
+  editorGridRows: 5
+  editorGridCellSpacing: 1
   boxPlacements:
-  - localPosition: {x: -1.5, y: 0, z: 0}
-    color: 1
-    visualProfile: {fileID: 0}
-    capacity: 80
+  - localPosition: {x: -2, y: 0, z: 2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: 0}
-    color: 1
-    visualProfile: {fileID: 0}
-    capacity: 80
+  - localPosition: {x: -1, y: 0, z: 2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -1.5, y: 0, z: 1.5}
-    color: 3
-    visualProfile: {fileID: 0}
-    capacity: 80
+  - localPosition: {x: 0, y: 0, z: 2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -1.5, y: 0, z: -1.5}
+  - localPosition: {x: 1, y: 0, z: 2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: 2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: -2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: -2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1, y: 0, z: -2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: -2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1, y: 0, z: -2}
+    color: 8
+    visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1, y: 0, z: 1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: 1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: 1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1, y: 0, z: 1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: 1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: -1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 1, y: 0, z: -1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0, y: 0, z: -1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -1, y: 0, z: -1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: -1}
+    color: 11
+    visualProfile: {fileID: 11400000, guid: 3a7c2a7d96fe13a418d5375c8c26d6fe, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: 0}
     color: 4
-    visualProfile: {fileID: 0}
-    capacity: 80
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -4.5, y: 0, z: 1.5}
-    color: 2
-    visualProfile: {fileID: 0}
-    capacity: 80
+  - localPosition: {x: -1, y: 0, z: 0}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: 1.5}
-    color: 2
-    visualProfile: {fileID: 0}
-    capacity: 80
+  - localPosition: {x: 0, y: 0, z: 0}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: -1.5}
-    color: 2
-    visualProfile: {fileID: 0}
-    capacity: 80
+  - localPosition: {x: 1, y: 0, z: 0}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -4.5, y: 0, z: -1.5}
-    color: 2
-    visualProfile: {fileID: 0}
-    capacity: 80
+  - localPosition: {x: 2, y: 0, z: 0}
+    color: 4
+    visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
   blockSequence: []

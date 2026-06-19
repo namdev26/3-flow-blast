@@ -17,77 +17,122 @@ MonoBehaviour:
   maxBeltSlots: 2
   maxBacklogBlocks: 12
   beltLaneCount: 4
+  boxCapacity: 80
+  mapLayout: {fileID: 0}
   autoBuildBlockSequenceFromBoxes: 1
+  editorGridColumns: 7
+  editorGridRows: 7
+  editorGridCellSpacing: 1
   boxPlacements:
-  - localPosition: {x: -3, y: 0, z: 1.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -2.5, y: 0, z: 2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -1.5, y: 0, z: 0}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -1.5, y: 0, z: 2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: -3}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -0.5, y: 0, z: 2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 4.5, y: 0, z: 0}
-    color: 2
-    capacity: 80
+  - localPosition: {x: 0.5, y: 0, z: 2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -3, y: 0, z: 3}
-    color: 2
-    capacity: 80
+  - localPosition: {x: 1.5, y: 0, z: 2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -3, y: 0, z: 4.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: 2.5, y: 0, z: 2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -4.5, y: 0, z: 4.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: 2.5, y: 0, z: -2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 4.5, y: 0, z: 4.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: 1.5, y: 0, z: -2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 1.5, y: 0, z: 4.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: 0.5, y: 0, z: -2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 0, y: 0, z: 4.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -0.5, y: 0, z: -2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -3, y: 0, z: -3}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -1.5, y: 0, z: -2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: -1.5, y: 0, z: -4.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -2.5, y: 0, z: -2}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 4.5, y: 0, z: -4.5}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -0.5, y: 0, z: -1}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  - localPosition: {x: 4.5, y: 0, z: -3}
-    color: 2
-    capacity: 80
+  - localPosition: {x: -0.5, y: 0, z: 0}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
-  blockSequence: 
+  - localPosition: {x: -0.5, y: 0, z: 1}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0.5, y: 0, z: 1}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0.5, y: 0, z: 0}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 0.5, y: 0, z: -1}
+    color: 7
+    visualProfile: {fileID: 11400000, guid: 37f7c40ace9303a4c9b0e5763e38e87d, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: 3}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: 3}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: -3}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: -3}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  blockSequence: []
   boxQueue: []

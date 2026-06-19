@@ -17,7 +17,6 @@ namespace FlowBlast.Editor
         private const string DefaultLevelFolder = "Assets/_Game/Data/Levels";
         private const string BoxVisualProfileFolder = "Assets/_Game/Data/BoxVisualProfiles";
         private const string DefaultLevelName = "LevelData";
-        private const float DefaultCellSpacing = 1.5f;
         private const float GridCellButtonSize = 34f;
         private const float GridColorPreviewSize = 18f;
         private const float VisualPaletteButtonSize = 26f;
@@ -34,13 +33,12 @@ namespace FlowBlast.Editor
         private SerializedProperty beltLaneCountProperty;
         private SerializedProperty editorGridColumnsProperty;
         private SerializedProperty editorGridRowsProperty;
-        private SerializedProperty editorGridCellSpacingProperty;
         private SerializedProperty mapLayoutProperty;
         private Vector2 windowScrollPosition;
         private int selectedPlacementIndex = -1;
         private int gridWidth = DefaultGridWidth;
         private int gridHeight = DefaultGridHeight;
-        private float gridCellSpacing = DefaultCellSpacing;
+        private const float GridCellSpacing = 1f;
         private bool brushHidden;
         private int brushFrozenClearsRequired;
         private BoxVisualProfile brushVisualProfile;
@@ -129,7 +127,6 @@ namespace FlowBlast.Editor
                 beltLaneCountProperty = null;
                 editorGridColumnsProperty = null;
                 editorGridRowsProperty = null;
-                editorGridCellSpacingProperty = null;
                 return;
             }
 
@@ -138,7 +135,6 @@ namespace FlowBlast.Editor
             beltLaneCountProperty = serializedLevelData.FindProperty("beltLaneCount");
             editorGridColumnsProperty = serializedLevelData.FindProperty("editorGridColumns");
             editorGridRowsProperty = serializedLevelData.FindProperty("editorGridRows");
-            editorGridCellSpacingProperty = serializedLevelData.FindProperty("editorGridCellSpacing");
             mapLayoutProperty = serializedLevelData.FindProperty("mapLayout");
             SyncGridSettingsFromSerializedData();
         }
@@ -340,16 +336,6 @@ namespace FlowBlast.Editor
                     gridWidth = Mathf.Max(1, EditorGUILayout.IntField("Columns", gridWidth));
                     gridHeight = Mathf.Max(1, EditorGUILayout.IntField("Rows", gridHeight));
                 }
-            }
-
-            if (editorGridCellSpacingProperty != null)
-            {
-                editorGridCellSpacingProperty.floatValue = Mathf.Max(0.25f, EditorGUILayout.FloatField("Cell Spacing", editorGridCellSpacingProperty.floatValue));
-                gridCellSpacing = editorGridCellSpacingProperty.floatValue;
-            }
-            else
-            {
-                gridCellSpacing = Mathf.Max(0.25f, EditorGUILayout.FloatField("Cell Spacing", gridCellSpacing));
             }
 
             using (new EditorGUILayout.HorizontalScope())
@@ -1440,10 +1426,10 @@ namespace FlowBlast.Editor
 
         private Vector3 GetLocalPositionFromGridCell(int column, int row)
         {
-            float offsetX = (gridWidth - 1) * gridCellSpacing * 0.5f;
-            float offsetZ = (gridHeight - 1) * gridCellSpacing * 0.5f;
-            float x = column * gridCellSpacing - offsetX;
-            float z = offsetZ - row * gridCellSpacing;
+            float offsetX = (gridWidth - 1) * GridCellSpacing * 0.5f;
+            float offsetZ = (gridHeight - 1) * GridCellSpacing * 0.5f;
+            float x = column * GridCellSpacing - offsetX;
+            float z = offsetZ - row * GridCellSpacing;
             return SnapLocalPosition(new Vector3(x, 0f, z));
         }
 
@@ -1457,10 +1443,10 @@ namespace FlowBlast.Editor
 
         private Vector2Int GetRawGridCellFromLocalPosition(Vector3 localPosition)
         {
-            float offsetX = (gridWidth - 1) * gridCellSpacing * 0.5f;
-            float offsetZ = (gridHeight - 1) * gridCellSpacing * 0.5f;
-            int column = Mathf.RoundToInt((localPosition.x + offsetX) / gridCellSpacing);
-            int row = Mathf.RoundToInt((offsetZ - localPosition.z) / gridCellSpacing);
+            float offsetX = (gridWidth - 1) * GridCellSpacing * 0.5f;
+            float offsetZ = (gridHeight - 1) * GridCellSpacing * 0.5f;
+            int column = Mathf.RoundToInt((localPosition.x + offsetX) / GridCellSpacing);
+            int row = Mathf.RoundToInt((offsetZ - localPosition.z) / GridCellSpacing);
             return new Vector2Int(column, row);
         }
 
@@ -1476,10 +1462,6 @@ namespace FlowBlast.Editor
                 gridHeight = Mathf.Max(1, editorGridRowsProperty.intValue);
             }
 
-            if (editorGridCellSpacingProperty != null)
-            {
-                gridCellSpacing = Mathf.Max(0.25f, editorGridCellSpacingProperty.floatValue);
-            }
         }
 
         private void SyncSerializedGridSettings()
@@ -1494,10 +1476,6 @@ namespace FlowBlast.Editor
                 editorGridRowsProperty.intValue = Mathf.Max(1, gridHeight);
             }
 
-            if (editorGridCellSpacingProperty != null)
-            {
-                editorGridCellSpacingProperty.floatValue = Mathf.Max(0.25f, gridCellSpacing);
-            }
         }
 
         private void PersistLevelDataChanges()

@@ -7,7 +7,7 @@ namespace FlowBlast.Core.Constants
     {
         public const int TestBoxCount = 5;
         public const int TestBoxColumns = 5;
-        public const float DefaultTestBoxCellSpacing = 1.2f;
+        public const float DefaultTestBoxCellSpacing = 1f;
         public const int TestBoxCapacity = GameConstants.DefaultBoxCapacity;
 
         private static readonly BlockColor[] TestBoxColors =
