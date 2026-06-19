@@ -29,8 +29,9 @@ namespace FlowBlast.Patterns.Pool
         {
             if (availableItems.Count == 0)
             {
-                item = null;
-                return false;
+                item = CreateInstance();
+                item.gameObject.SetActive(true);
+                return true;
             }
 
             item = availableItems.Dequeue();

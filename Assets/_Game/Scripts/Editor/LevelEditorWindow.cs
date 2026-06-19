@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using FlowBlast.Bootstrap;
 using FlowBlast.Core.Constants;
 using FlowBlast.Core.Enums;
+using FlowBlast.Core.Utilities;
 using FlowBlast.Data;
+using FlowBlast.Presentation.Block;
+using FlowBlast.Services.Belt;
 using UnityEditor;
 using UnityEngine;
 
@@ -32,6 +35,7 @@ namespace FlowBlast.Editor
         private SerializedProperty editorGridColumnsProperty;
         private SerializedProperty editorGridRowsProperty;
         private SerializedProperty editorGridCellSpacingProperty;
+        private SerializedProperty mapLayoutProperty;
         private Vector2 windowScrollPosition;
         private int selectedPlacementIndex = -1;
         private int gridWidth = DefaultGridWidth;
@@ -43,6 +47,7 @@ namespace FlowBlast.Editor
         private bool eraseMode;
         private bool showSettings = true;
         private bool showGridAuthoring = true;
+        private bool showBlockPreview = true;
         private bool isSaveRequested;
         private List<BoxVisualProfile> cachedVisualProfiles;
 
@@ -134,6 +139,7 @@ namespace FlowBlast.Editor
             editorGridColumnsProperty = serializedLevelData.FindProperty("editorGridColumns");
             editorGridRowsProperty = serializedLevelData.FindProperty("editorGridRows");
             editorGridCellSpacingProperty = serializedLevelData.FindProperty("editorGridCellSpacing");
+            mapLayoutProperty = serializedLevelData.FindProperty("mapLayout");
             SyncGridSettingsFromSerializedData();
         }
 
@@ -252,12 +258,34 @@ namespace FlowBlast.Editor
             }
 
             DrawProperty("levelId");
+            DrawMapLayoutPicker();
             DrawProperty("beltSpeed");
             DrawProperty("maxBeltSlots");
             DrawProperty("maxBacklogBlocks");
             DrawProperty("beltLaneCount");
             DrawProperty("boxCapacity");
             DrawProperty("autoBuildBlockSequenceFromBoxes");
+        }
+
+        private void DrawMapLayoutPicker()
+        {
+            if (mapLayoutProperty == null)
+            {
+                return;
+            }
+
+            EditorGUI.BeginChangeCheck();
+            LevelMapLayout newLayout = (LevelMapLayout)EditorGUILayout.ObjectField(
+                "Map Layout",
+                mapLayoutProperty.objectReferenceValue as LevelMapLayout,
+                typeof(LevelMapLayout),
+                false);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                mapLayoutProperty.objectReferenceValue = newLayout;
+                SceneView.RepaintAll();
+            }
         }
 
         private void DrawGridAuthoringSection()
@@ -431,6 +459,17 @@ namespace FlowBlast.Editor
             EditorGUILayout.LabelField("Total Blocks", GetTotalBlockCountFromSerializedData().ToString());
             EditorGUILayout.LabelField("Sequence Rows", levelData.BlockSequence.Count.ToString());
             EditorGUILayout.LabelField("Lane Count", beltLaneCountProperty.intValue.ToString());
+
+            LevelMapLayout layout = mapLayoutProperty?.objectReferenceValue as LevelMapLayout;
+            EditorGUILayout.LabelField("Map Layout", layout != null ? layout.name : "— None —");
+
+            EditorGUI.BeginChangeCheck();
+            showBlockPreview = EditorGUILayout.Toggle("Preview Blocks On Paths", showBlockPreview);
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                SceneView.RepaintAll();
+            }
         }
 
         private void OnSceneGui(SceneView sceneView)
@@ -448,6 +487,12 @@ namespace FlowBlast.Editor
             }
 
             serializedLevelData.Update();
+
+            if (showBlockPreview)
+            {
+                DrawBlockPreviewOnPaths();
+            }
+
             DrawScenePlacements();
             DrawSelectedPlacementHandle();
             serializedLevelData.ApplyModifiedProperties();
@@ -1030,6 +1075,248 @@ namespace FlowBlast.Editor
             collectionPointMarkerProperty.objectReferenceValue = collectionPointMarker;
             serializedInstaller.ApplyModifiedProperties();
             EditorUtility.SetDirty(gameplayInstaller);
+        }
+
+        private void DrawBlockPreviewOnPaths()
+        {
+            IReadOnlyList<BoxVisualProfile> sequence = levelData.BlockSequence;
+
+            if (sequence == null || sequence.Count == 0)
+            {
+                return;
+            }
+
+            BeltPath mainPath = ResolveMainBeltPath();
+
+            if (mainPath == null || mainPath.TotalLength <= Mathf.Epsilon)
+            {
+                return;
+            }
+
+            float rowSpacing = ResolveBlockRowSpacing();
+            int laneCount = levelData.BeltLaneCount;
+            float laneSpacing = rowSpacing;
+            int sequenceCursor = 0;
+
+            LevelMapLayout layout = mapLayoutProperty?.objectReferenceValue as LevelMapLayout;
+
+            if (layout != null && layout.MainWaypointLocalPositions.Count >= 2)
+            {
+                DrawPreviewFromLayout(layout, mainPath.transform, sequence, ref sequenceCursor, rowSpacing, laneCount, laneSpacing);
+                return;
+            }
+
+            DrawBlockRowsOnPath(mainPath, sequence, ref sequenceCursor, rowSpacing, laneCount, laneSpacing, 0.9f);
+
+            List<BeltPath> queuePaths = ResolveSceneQueuePaths();
+
+            for (int i = 0; i < queuePaths.Count; i++)
+            {
+                if (sequenceCursor >= sequence.Count)
+                {
+                    break;
+                }
+
+                BeltPath queuePath = queuePaths[i];
+
+                if (queuePath == null || queuePath.TotalLength <= Mathf.Epsilon)
+                {
+                    continue;
+                }
+
+                DrawBlockRowsOnPath(queuePath, sequence, ref sequenceCursor, rowSpacing, laneCount, laneSpacing, 0.65f);
+            }
+        }
+
+        private void DrawPreviewFromLayout(
+            LevelMapLayout layout,
+            Transform pathRootTransform,
+            IReadOnlyList<BoxVisualProfile> sequence,
+            ref int cursor,
+            float rowSpacing,
+            int laneCount,
+            float laneSpacing)
+        {
+            CatmullRomPathSampler mainSampler = BuildSamplerFromLocalWaypoints(
+                layout.MainWaypointLocalPositions,
+                layout.IsMainPathClosedLoop,
+                layout.MainCurveStrength,
+                pathRootTransform);
+
+            DrawBlockRowsOnSampler(mainSampler, sequence, ref cursor, rowSpacing, laneCount, laneSpacing, 0.9f);
+
+            for (int i = 0; i < layout.QueuePaths.Count; i++)
+            {
+                if (cursor >= sequence.Count)
+                {
+                    break;
+                }
+
+                QueuePathLayout queueLayout = layout.QueuePaths[i];
+
+                if (queueLayout == null || queueLayout.WaypointLocalPositions.Count < 2)
+                {
+                    continue;
+                }
+
+                CatmullRomPathSampler queueSampler = BuildSamplerFromLocalWaypoints(
+                    queueLayout.WaypointLocalPositions,
+                    queueLayout.IsClosedLoop,
+                    queueLayout.CurveStrength,
+                    pathRootTransform);
+
+                DrawBlockRowsOnSampler(queueSampler, sequence, ref cursor, rowSpacing, laneCount, laneSpacing, 0.65f);
+            }
+        }
+
+        private void DrawBlockRowsOnSampler(
+            CatmullRomPathSampler sampler,
+            IReadOnlyList<BoxVisualProfile> sequence,
+            ref int cursor,
+            float rowSpacing,
+            int laneCount,
+            float laneSpacing,
+            float alpha)
+        {
+            if (sampler == null || sampler.TotalLength <= Mathf.Epsilon)
+            {
+                return;
+            }
+
+            int rowCapacity = Mathf.FloorToInt(sampler.TotalLength / rowSpacing);
+            int rowsToShow = Mathf.Min(rowCapacity, sequence.Count - cursor);
+
+            for (int rowIndex = 0; rowIndex < rowsToShow; rowIndex++)
+            {
+                BoxVisualProfile profile = sequence[cursor + rowIndex];
+                Color color = profile != null ? profile.TintColor : Color.gray;
+                color.a = alpha;
+                Handles.color = color;
+
+                float rowDistance = rowIndex * rowSpacing;
+                Vector3 center = sampler.GetPositionAtDistance(rowDistance);
+                Quaternion rotation = sampler.GetRotationAtDistance(rowDistance);
+                float handleSize = HandleUtility.GetHandleSize(center) * 0.055f;
+
+                for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
+                {
+                    Vector3 lanePosition = BeltLaneLayout.GetLanePosition(center, rotation, laneIndex, laneCount, laneSpacing);
+                    Handles.DrawSolidDisc(lanePosition, rotation * Vector3.up, handleSize);
+                }
+            }
+
+            cursor += rowsToShow;
+        }
+
+        private void DrawBlockRowsOnPath(
+            BeltPath path,
+            IReadOnlyList<BoxVisualProfile> sequence,
+            ref int cursor,
+            float rowSpacing,
+            int laneCount,
+            float laneSpacing,
+            float alpha)
+        {
+            int rowCapacity = Mathf.FloorToInt(path.TotalLength / rowSpacing);
+            int rowsToShow = Mathf.Min(rowCapacity, sequence.Count - cursor);
+
+            for (int rowIndex = 0; rowIndex < rowsToShow; rowIndex++)
+            {
+                BoxVisualProfile profile = sequence[cursor + rowIndex];
+                Color color = profile != null ? profile.TintColor : Color.gray;
+                color.a = alpha;
+                Handles.color = color;
+
+                float rowDistance = rowIndex * rowSpacing;
+                Vector3 center = path.GetPositionAtDistance(rowDistance);
+                Quaternion rotation = path.GetRotationAtDistance(rowDistance);
+                float handleSize = HandleUtility.GetHandleSize(center) * 0.055f;
+
+                for (int laneIndex = 0; laneIndex < laneCount; laneIndex++)
+                {
+                    Vector3 lanePosition = BeltLaneLayout.GetLanePosition(center, rotation, laneIndex, laneCount, laneSpacing);
+                    Handles.DrawSolidDisc(lanePosition, rotation * Vector3.up, handleSize);
+                }
+            }
+
+            cursor += rowsToShow;
+        }
+
+        private static CatmullRomPathSampler BuildSamplerFromLocalWaypoints(
+            IReadOnlyList<Vector3> localPositions,
+            bool closedLoop,
+            float curveStrength,
+            Transform parentTransform)
+        {
+            List<Vector3> worldPositions = new List<Vector3>(localPositions.Count);
+
+            for (int i = 0; i < localPositions.Count; i++)
+            {
+                Vector3 worldPos = parentTransform != null
+                    ? parentTransform.TransformPoint(localPositions[i])
+                    : localPositions[i];
+                worldPositions.Add(worldPos);
+            }
+
+            CatmullRomPathSampler sampler = new CatmullRomPathSampler();
+            sampler.Rebuild(worldPositions, closedLoop, curveStrength);
+            return sampler;
+        }
+
+        private BeltPath ResolveMainBeltPath()
+        {
+            if (gameplayInstaller == null)
+            {
+                return null;
+            }
+
+            Transform conveyorRoot = TransformHierarchyUtility.FindChildRecursive(
+                gameplayInstaller.transform,
+                GameplayZoneNames.ConveyorRoot);
+
+            return conveyorRoot != null ? conveyorRoot.GetComponent<BeltPath>() : null;
+        }
+
+        private List<BeltPath> ResolveSceneQueuePaths()
+        {
+            List<BeltPath> result = new List<BeltPath>();
+
+            if (gameplayInstaller == null)
+            {
+                return result;
+            }
+
+            BeltPath mainPath = ResolveMainBeltPath();
+            BeltPath[] allPaths = gameplayInstaller.GetComponentsInChildren<BeltPath>(true);
+
+            for (int i = 0; i < allPaths.Length; i++)
+            {
+                BeltPath candidate = allPaths[i];
+
+                if (candidate == null || candidate == mainPath || candidate.PathRole != BeltPathRole.Queue)
+                {
+                    continue;
+                }
+
+                result.Add(candidate);
+            }
+
+            result.Sort((left, right) => string.CompareOrdinal(left.PathId, right.PathId));
+            return result;
+        }
+
+        private float ResolveBlockRowSpacing()
+        {
+            if (gameplayInstaller == null)
+            {
+                return GameConstants.FallbackBlockSpacing;
+            }
+
+            SerializedObject installerSO = new SerializedObject(gameplayInstaller);
+            BlockView blockPrefab = installerSO.FindProperty("blockPrefab")?.objectReferenceValue as BlockView;
+            return blockPrefab != null
+                ? BlockBeltLayout.CalculateSpacing(blockPrefab)
+                : GameConstants.FallbackBlockSpacing;
         }
 
         private void OnProjectChange()

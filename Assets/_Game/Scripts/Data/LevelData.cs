@@ -14,6 +14,7 @@ namespace FlowBlast.Data
         [SerializeField] private int maxBacklogBlocks = GameConstants.DefaultMaxBacklogBlocks;
         [SerializeField] private int beltLaneCount = GameConstants.BeltLaneCount;
         [SerializeField] private int boxCapacity = GameConstants.DefaultBoxCapacity;
+        [SerializeField] private LevelMapLayout mapLayout;
         [SerializeField] private bool autoBuildBlockSequenceFromBoxes = true;
         [SerializeField] private int editorGridColumns = 5;
         [SerializeField] private int editorGridRows = 5;
@@ -23,6 +24,7 @@ namespace FlowBlast.Data
         [SerializeField] private List<BoxDefinition> boxQueue = new List<BoxDefinition>();
 
         public string LevelId => levelId;
+        public LevelMapLayout MapLayout => mapLayout;
         public float BeltSpeed => beltSpeed;
         public int MaxBeltSlots => maxBeltSlots;
         public int MaxBacklogBlocks => maxBacklogBlocks;

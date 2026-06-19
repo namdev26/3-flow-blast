@@ -28,6 +28,7 @@ namespace FlowBlast.Services.Block
         private int laneCount = GameConstants.BeltLaneCount;
         private float rowSpacing = GameConstants.FallbackBlockSpacing;
         private float laneSpacing = GameConstants.FallbackBlockSpacing;
+        private QueueBlockDisplayService queueDisplayService;
 
         public BlockSpawnService(
             BlockFactory blockFactory,
@@ -43,6 +44,12 @@ namespace FlowBlast.Services.Block
             this.boxCollectionService = boxCollectionService;
             this.blockCollectPresentationService = blockCollectPresentationService;
             this.boxBlastService = boxBlastService;
+        }
+
+        public void SetQueueDisplayService(QueueBlockDisplayService service)
+        {
+            queueDisplayService = service;
+            queueDisplayService?.ConfigureLayout(rowSpacing, laneCount, laneSpacing);
         }
 
         public void ConfigureBlockSpacing(float spacing)
@@ -73,6 +80,7 @@ namespace FlowBlast.Services.Block
 
         public void LoadSequence(IReadOnlyList<BoxVisualProfile> sequence)
         {
+            queueDisplayService?.Clear();
             ClearActiveBlocks();
             blockFactory.RecyclePool();
             blockSequence.Clear();
@@ -173,6 +181,8 @@ namespace FlowBlast.Services.Block
 
                 missingRows--;
             }
+
+            queueDisplayService?.Refresh(blockSequence, sequenceIndex);
         }
 
         private int GetMissingRowCount()

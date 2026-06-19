@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using FlowBlast.Core.Constants;
 using FlowBlast.Core.Events;
 using FlowBlast.Core.Utilities;
@@ -145,7 +146,15 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
-            mapLayoutBinder.ApplyLayout();
+            if (levelData != null && levelData.MapLayout != null)
+            {
+                mapLayoutBinder.SetMapLayout(levelData.MapLayout);
+            }
+            else
+            {
+                mapLayoutBinder.ApplyLayout();
+            }
+
             EnsureBoxConveyorPathReady();
         }
 
@@ -295,7 +304,7 @@ namespace FlowBlast.Bootstrap
             BeltFollowerRegistry boxConveyorFollowerRegistry = new BeltFollowerRegistry();
 
             BlockViewPool blockPool = new BlockViewPool(blockPrefab, blockPoolParent);
-            blockPool.Prewarm(GameConstants.DefaultPoolPrewarmCount);
+            blockPool.Prewarm(ResolveInitialBlockPoolSize());
 
             BlockFactory blockFactory = new BlockFactory(blockPool, colorPalette, beltPath);
             BoxFactory boxFactory = new BoxFactory(boxPrefab, boxBeltParent);
@@ -348,6 +357,9 @@ namespace FlowBlast.Bootstrap
             blockSpawnService.ConfigureBeltLanes(
                 levelData != null ? levelData.BeltLaneCount : GameConstants.BeltLaneCount);
 
+            QueueBlockDisplayService queueBlockDisplayService = BuildQueueBlockDisplayService(blockFactory, blockPrefab, levelData);
+            blockSpawnService.SetQueueDisplayService(queueBlockDisplayService);
+
             WinConditionEvaluator winEvaluator = new WinConditionEvaluator(
                 blockSpawnService,
                 beltSlotService,
@@ -384,6 +396,150 @@ namespace FlowBlast.Bootstrap
                 presentationCoordinator,
                 boxFactory,
                 boxRegistryService);
+        }
+
+        private QueueBlockDisplayService BuildQueueBlockDisplayService(
+            BlockFactory blockFactory,
+            BlockView blockPrefab,
+            LevelData levelData)
+        {
+            List<IBeltPath> queuePaths = ResolveQueueBeltPaths();
+
+            if (queuePaths.Count == 0)
+            {
+                return null;
+            }
+
+            float spacing = BlockBeltLayout.CalculateSpacing(blockPrefab);
+            int lanes = levelData != null ? levelData.BeltLaneCount : GameConstants.BeltLaneCount;
+
+            QueueBlockDisplayService service = new QueueBlockDisplayService(queuePaths, blockFactory);
+            service.ConfigureLayout(spacing, lanes, spacing);
+            return service;
+        }
+
+        private int ResolveInitialBlockPoolSize()
+        {
+            if (levelData == null || blockPrefab == null || beltPath == null)
+            {
+                return GameConstants.DefaultPoolPrewarmCount;
+            }
+
+            float spacing = BlockBeltLayout.CalculateSpacing(blockPrefab);
+            int laneCount = Mathf.Max(1, levelData.BeltLaneCount);
+            int sequenceBlockCount = levelData.BlockSequence.Count * laneCount;
+            int mainCapacity = BeltLaneLayout.GetTotalBlockCapacity(beltPath.TotalLength, spacing, laneCount);
+            int queueCapacity = GetQueueDisplayCapacity(spacing, laneCount);
+            int recommendedPoolSize = Mathf.Max(sequenceBlockCount, mainCapacity + queueCapacity);
+            return Mathf.Max(GameConstants.DefaultPoolPrewarmCount, recommendedPoolSize);
+        }
+
+        private int GetQueueDisplayCapacity(float rowSpacing, int laneCount)
+        {
+            if (rowSpacing <= Mathf.Epsilon || laneCount <= 0)
+            {
+                return 0;
+            }
+
+            List<IBeltPath> queuePaths = ResolveQueueBeltPaths();
+            int totalCapacity = 0;
+
+            for (int i = 0; i < queuePaths.Count; i++)
+            {
+                IBeltPath queuePath = queuePaths[i];
+
+                if (queuePath == null)
+                {
+                    continue;
+                }
+
+                totalCapacity += BeltLaneLayout.GetTotalBlockCapacity(queuePath.TotalLength, rowSpacing, laneCount);
+            }
+
+            return totalCapacity;
+        }
+
+        private List<IBeltPath> ResolveQueueBeltPaths()
+        {
+            if (mapLayoutBinder != null && mapLayoutBinder.QueueBeltPaths.Count > 0)
+            {
+                List<IBeltPath> fromBinder = new List<IBeltPath>();
+
+                for (int i = 0; i < mapLayoutBinder.QueueBeltPaths.Count; i++)
+                {
+                    if (mapLayoutBinder.QueueBeltPaths[i] != null)
+                    {
+                        fromBinder.Add(mapLayoutBinder.QueueBeltPaths[i]);
+                    }
+                }
+
+                if (fromBinder.Count > 0)
+                {
+                    return fromBinder;
+                }
+            }
+
+            List<IBeltPath> scenePaths = new List<IBeltPath>();
+            BeltPath[] allPaths = GetComponentsInChildren<BeltPath>(true);
+
+            for (int i = 0; i < allPaths.Length; i++)
+            {
+                BeltPath candidate = allPaths[i];
+
+                if (candidate == null || candidate.PathRole != BeltPathRole.Queue)
+                {
+                    continue;
+                }
+
+                if (candidate == beltPath || candidate == boxConveyorPath)
+                {
+                    continue;
+                }
+
+                scenePaths.Add(candidate);
+            }
+
+            if (scenePaths.Count > 0)
+            {
+                return scenePaths;
+            }
+
+            return ResolveVirtualQueuePaths();
+        }
+
+        private List<IBeltPath> ResolveVirtualQueuePaths()
+        {
+            List<IBeltPath> virtualPaths = new List<IBeltPath>();
+
+            if (levelData?.MapLayout == null || beltPath == null)
+            {
+                return virtualPaths;
+            }
+
+            IReadOnlyList<QueuePathLayout> queueLayouts = levelData.MapLayout.QueuePaths;
+
+            for (int i = 0; i < queueLayouts.Count; i++)
+            {
+                QueuePathLayout queueLayout = queueLayouts[i];
+
+                if (queueLayout == null || queueLayout.WaypointLocalPositions.Count < 2)
+                {
+                    continue;
+                }
+
+                VirtualBeltPath virtualPath = new VirtualBeltPath(
+                    queueLayout.WaypointLocalPositions,
+                    queueLayout.IsClosedLoop,
+                    queueLayout.CurveStrength,
+                    beltPath.transform);
+
+                if (virtualPath.TotalLength > Mathf.Epsilon)
+                {
+                    virtualPaths.Add(virtualPath);
+                }
+            }
+
+            return virtualPaths;
         }
 
         private void SpawnBoardLevelBoxes()

@@ -24,17 +24,15 @@ MonoBehaviour:
   queuePaths:
   - queueId: Queue_01
     displayName: Queue 01
-    isClosedLoop: 0
+    isClosedLoop: 1
     waypointLocalPositions:
-    - {x: -2.8, y: 0, z: 3.2}
-    - {x: -4.8, y: 0, z: 4}
-    - {x: -4.4, y: 0, z: 6.4}
+    - {x: -3.2, y: 0, z: 3.6000001}
+    - {x: -15.2, y: 0, z: 16}
     curveStrength: 1
   - queueId: Queue_02
     displayName: Queue 02
-    isClosedLoop: 0
+    isClosedLoop: 1
     waypointLocalPositions:
-    - {x: 2.4, y: 0, z: 3.2}
-    - {x: 4.8, y: 0, z: 4}
-    - {x: 4.4, y: 0, z: 6.4}
+    - {x: 2.8, y: 0, z: 3.6000001}
+    - {x: 14, y: 0, z: 16.800001}
     curveStrength: 1
