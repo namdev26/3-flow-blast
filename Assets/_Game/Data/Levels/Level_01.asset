@@ -17,33 +17,50 @@ MonoBehaviour:
   maxBeltSlots: 2
   maxBacklogBlocks: 12
   beltLaneCount: 4
+  boxCapacity: 80
   autoBuildBlockSequenceFromBoxes: 1
-  editorGridColumns: 2
-  editorGridRows: 2
+  editorGridColumns: 4
+  editorGridRows: 4
   editorGridCellSpacing: 1.5
   boxPlacements:
   - localPosition: {x: -1, y: 0, z: 1}
     color: 8
     visualProfile: {fileID: 11400000, guid: 3ed758a8de6cfbb4fb5987604b9783e0, type: 2}
-    capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
   - localPosition: {x: -1, y: 0, z: -1}
     color: 2
     visualProfile: {fileID: 11400000, guid: 8fe21c654368e5543a86e4e6a10715f2, type: 2}
-    capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
   - localPosition: {x: 1, y: 0, z: -1}
     color: 1
     visualProfile: {fileID: 11400000, guid: faf6830140464934dbdcd1370425a5d5, type: 2}
-    capacity: 80
     isHidden: 0
     frozenClearsRequired: 0
   - localPosition: {x: 1, y: 0, z: 1}
     color: 4
     visualProfile: {fileID: 11400000, guid: c3d7dd7c7b766e44693ee36a5060eee5, type: 2}
-    capacity: 80
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: -2}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: 2, y: 0, z: 2}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: -2}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
+    isHidden: 0
+    frozenClearsRequired: 0
+  - localPosition: {x: -2, y: 0, z: 2}
+    color: 10
+    visualProfile: {fileID: 11400000, guid: 05a0df0abeb4cef44bc2873907ff6f2c, type: 2}
     isHidden: 0
     frozenClearsRequired: 0
   blockSequence: []

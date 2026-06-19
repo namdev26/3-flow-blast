@@ -22,6 +22,7 @@ namespace FlowBlast.Services.Board
 
         public void SpawnLevelBoxes(
             IReadOnlyList<LevelBoxPlacement> boxPlacements,
+            int boxCapacity,
             BoxRegistryService boxRegistryService,
             BlockColorPalette colorPalette,
             IBeltPath beltPath,
@@ -32,10 +33,12 @@ namespace FlowBlast.Services.Board
                 return;
             }
 
+            int safeBoxCapacity = Mathf.Max(1, boxCapacity);
+
             for (int i = 0; i < boxPlacements.Count; i++)
             {
                 LevelBoxPlacement boxPlacement = boxPlacements[i];
-                BoxModel model = boxFactory.CreateModel(boxPlacement.CreateDefinition());
+                BoxModel model = boxFactory.CreateModel(boxPlacement.CreateDefinition(safeBoxCapacity));
                 BoxView view = boxFactory.CreateView(model, boardRoot, boxPlacement.LocalPosition);
                 view.Configure(beltPath, beltParent, colorPalette);
                 view.RefreshPresentation();

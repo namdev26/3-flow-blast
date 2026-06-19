@@ -1,4 +1,3 @@
-using FlowBlast.Core.Constants;
 using FlowBlast.Core.Enums;
 using UnityEngine;
 
@@ -10,7 +9,6 @@ namespace FlowBlast.Data
         [SerializeField] private Vector3 localPosition;
         [SerializeField] private BlockColor color = BlockColor.Green;
         [SerializeField] private BoxVisualProfile visualProfile;
-        [SerializeField] private int capacity = GameConstants.DefaultBoxCapacity;
         [SerializeField] private bool isHidden;
         [SerializeField] private int frozenClearsRequired;
 
@@ -32,12 +30,6 @@ namespace FlowBlast.Data
             set => visualProfile = value;
         }
 
-        public int Capacity
-        {
-            get => capacity;
-            set => capacity = Mathf.Max(1, value);
-        }
-
         public bool IsHidden
         {
             get => isHidden;
@@ -50,13 +42,13 @@ namespace FlowBlast.Data
             set => frozenClearsRequired = Mathf.Max(0, value);
         }
 
-        public BoxDefinition CreateDefinition()
+        public BoxDefinition CreateDefinition(int boxCapacity)
         {
             return new BoxDefinition
             {
                 Color = GetResolvedColor(),
                 VisualProfile = visualProfile,
-                Capacity = Mathf.Max(1, capacity),
+                Capacity = Mathf.Max(1, boxCapacity),
                 IsHidden = isHidden,
                 FrozenClearsRequired = Mathf.Max(0, frozenClearsRequired)
             };
@@ -73,7 +65,6 @@ namespace FlowBlast.Data
                 ? definition.VisualProfile.BlockColor
                 : definition.Color;
             VisualProfile = definition.VisualProfile;
-            Capacity = definition.Capacity;
             IsHidden = definition.IsHidden;
             FrozenClearsRequired = definition.FrozenClearsRequired;
         }

@@ -396,6 +396,7 @@ namespace FlowBlast.Bootstrap
             BoardBoxSpawnService boardBoxSpawnService = new BoardBoxSpawnService(context.BoxFactory, boardRoot);
             boardBoxSpawnService.SpawnLevelBoxes(
                 levelData.BoxPlacements,
+                levelData.BoxCapacity,
                 context.BoxRegistryService,
                 colorPalette,
                 beltPath,

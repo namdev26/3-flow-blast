@@ -13,6 +13,7 @@ namespace FlowBlast.Data
         [SerializeField] private int maxBeltSlots = GameConstants.DefaultMaxBeltSlots;
         [SerializeField] private int maxBacklogBlocks = GameConstants.DefaultMaxBacklogBlocks;
         [SerializeField] private int beltLaneCount = GameConstants.BeltLaneCount;
+        [SerializeField] private int boxCapacity = GameConstants.DefaultBoxCapacity;
         [SerializeField] private bool autoBuildBlockSequenceFromBoxes = true;
         [SerializeField] private int editorGridColumns = 5;
         [SerializeField] private int editorGridRows = 5;
@@ -26,13 +27,14 @@ namespace FlowBlast.Data
         public int MaxBeltSlots => maxBeltSlots;
         public int MaxBacklogBlocks => maxBacklogBlocks;
         public int BeltLaneCount => beltLaneCount;
+        public int BoxCapacity => Mathf.Max(1, boxCapacity);
         public bool AutoBuildBlockSequenceFromBoxes => autoBuildBlockSequenceFromBoxes;
         public int EditorGridColumns => editorGridColumns;
         public int EditorGridRows => editorGridRows;
         public float EditorGridCellSpacing => editorGridCellSpacing;
         public IReadOnlyList<LevelBoxPlacement> BoxPlacements => boxPlacements;
         public IReadOnlyList<BoxVisualProfile> BlockSequence => autoBuildBlockSequenceFromBoxes
-            ? LevelBlockSequenceBuilder.BuildFromPlacements(boxPlacements, beltLaneCount)
+            ? LevelBlockSequenceBuilder.BuildFromPlacements(boxPlacements, beltLaneCount, BoxCapacity)
             : blockSequence;
         public int TotalBlockCount => GetTotalBlockCount();
 
@@ -47,14 +49,7 @@ namespace FlowBlast.Data
 
         private int GetTotalBlockCount()
         {
-            int totalBlockCount = 0;
-
-            for (int i = 0; i < boxPlacements.Count; i++)
-            {
-                totalBlockCount += Mathf.Max(1, boxPlacements[i].Capacity);
-            }
-
-            return totalBlockCount;
+            return boxPlacements.Count * BoxCapacity;
         }
 
         private void MigrateLegacyBoxQueue()

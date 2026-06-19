@@ -28,27 +28,21 @@ namespace FlowBlast.Editor
         private GameplayInstaller gameplayInstaller;
         private SerializedObject serializedLevelData;
         private SerializedProperty boxPlacementsProperty;
-        private SerializedProperty autoBuildBlockSequenceFromBoxesProperty;
-        private SerializedProperty blockSequenceProperty;
         private SerializedProperty beltLaneCountProperty;
         private SerializedProperty editorGridColumnsProperty;
         private SerializedProperty editorGridRowsProperty;
         private SerializedProperty editorGridCellSpacingProperty;
         private Vector2 windowScrollPosition;
-        private Vector2 boxListScrollPosition;
         private int selectedPlacementIndex = -1;
         private int gridWidth = DefaultGridWidth;
         private int gridHeight = DefaultGridHeight;
         private float gridCellSpacing = DefaultCellSpacing;
-        private int brushCapacity = GameConstants.DefaultBoxCapacity;
         private bool brushHidden;
         private int brushFrozenClearsRequired;
         private BoxVisualProfile brushVisualProfile;
         private bool eraseMode;
         private bool showSettings = true;
-        private bool showSequence = true;
         private bool showGridAuthoring = true;
-        private bool showBoxList = true;
         private bool isSaveRequested;
         private List<BoxVisualProfile> cachedVisualProfiles;
 
@@ -127,8 +121,6 @@ namespace FlowBlast.Editor
             {
                 serializedLevelData = null;
                 boxPlacementsProperty = null;
-                autoBuildBlockSequenceFromBoxesProperty = null;
-                blockSequenceProperty = null;
                 beltLaneCountProperty = null;
                 editorGridColumnsProperty = null;
                 editorGridRowsProperty = null;
@@ -138,8 +130,6 @@ namespace FlowBlast.Editor
 
             serializedLevelData = new SerializedObject(levelData);
             boxPlacementsProperty = serializedLevelData.FindProperty("boxPlacements");
-            autoBuildBlockSequenceFromBoxesProperty = serializedLevelData.FindProperty("autoBuildBlockSequenceFromBoxes");
-            blockSequenceProperty = serializedLevelData.FindProperty("blockSequence");
             beltLaneCountProperty = serializedLevelData.FindProperty("beltLaneCount");
             editorGridColumnsProperty = serializedLevelData.FindProperty("editorGridColumns");
             editorGridRowsProperty = serializedLevelData.FindProperty("editorGridRows");
@@ -169,12 +159,6 @@ namespace FlowBlast.Editor
                 DrawSettingsSection();
                 EditorGUILayout.Space(6f);
                 DrawGridAuthoringSection();
-                EditorGUILayout.Space(6f);
-                DrawBoxListSection();
-                EditorGUILayout.Space(6f);
-                DrawSelectedBoxPanel();
-                EditorGUILayout.Space(6f);
-                DrawSequenceSection();
                 EditorGUILayout.Space(6f);
                 DrawSummarySection();
             }
@@ -272,6 +256,7 @@ namespace FlowBlast.Editor
             DrawProperty("maxBeltSlots");
             DrawProperty("maxBacklogBlocks");
             DrawProperty("beltLaneCount");
+            DrawProperty("boxCapacity");
             DrawProperty("autoBuildBlockSequenceFromBoxes");
         }
 
@@ -352,7 +337,6 @@ namespace FlowBlast.Editor
         {
             EditorGUILayout.LabelField("Brush", EditorStyles.boldLabel);
             DrawInlineColorPreview(ResolveBrushPreviewColor());
-            brushCapacity = Mathf.Max(1, EditorGUILayout.IntField("Capacity", brushCapacity));
             brushHidden = EditorGUILayout.Toggle("Is Hidden", brushHidden);
             brushFrozenClearsRequired = Mathf.Max(0, EditorGUILayout.IntField("Frozen Clears", brushFrozenClearsRequired));
             eraseMode = EditorGUILayout.Toggle("Erase Mode", eraseMode);
@@ -440,187 +424,11 @@ namespace FlowBlast.Editor
             return true;
         }
 
-        private void DrawBoxListSection()
-        {
-            showBoxList = EditorGUILayout.Foldout(showBoxList, $"Box List ({GetPlacementCount()})", true);
-
-            if (!showBoxList)
-            {
-                return;
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                GUILayout.FlexibleSpace();
-
-                using (new EditorGUI.DisabledScope(GetPlacementCount() == 0))
-                {
-                    if (GUILayout.Button("Clear All Boxes", GUILayout.Width(120f)))
-                    {
-                        ClearAllPlacements();
-                    }
-                }
-            }
-
-            if (GetPlacementCount() == 0)
-            {
-                EditorGUILayout.HelpBox("No boxes placed yet. Click grid cells above to place boxes.", MessageType.Info);
-                return;
-            }
-
-            using (EditorGUILayout.ScrollViewScope scrollView = new EditorGUILayout.ScrollViewScope(boxListScrollPosition, GUILayout.MaxHeight(220f)))
-            {
-                boxListScrollPosition = scrollView.scrollPosition;
-
-                for (int i = 0; i < boxPlacementsProperty.arraySize; i++)
-                {
-                    DrawPlacementRow(i, boxPlacementsProperty.GetArrayElementAtIndex(i));
-                }
-            }
-        }
-
-        private void DrawPlacementRow(int index, SerializedProperty placementProperty)
-        {
-            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
-            SerializedProperty capacityProperty = placementProperty.FindPropertyRelative("capacity");
-            SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
-            bool isSelected = selectedPlacementIndex == index;
-            Color boxColor = ResolvePlacementPreviewColor(visualProfileProperty);
-            Vector3 localPosition = localPositionProperty.vector3Value;
-            Vector2Int cell = GetGridCellFromLocalPosition(localPosition);
-            GUIStyle rowStyle = new GUIStyle(EditorStyles.helpBox);
-
-            if (isSelected)
-            {
-                rowStyle.normal.background = Texture2D.grayTexture;
-            }
-
-            using (new EditorGUILayout.HorizontalScope(rowStyle))
-            {
-                DrawColorPreview(boxColor);
-
-                using (new EditorGUILayout.VerticalScope())
-                {
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        if (GUILayout.Button($"Box #{index + 1}", EditorStyles.miniButtonLeft, GUILayout.Width(72f)))
-                        {
-                            SelectPlacement(index);
-                        }
-
-                        GUILayout.Label($"Cap {capacityProperty.intValue}", EditorStyles.miniLabel, GUILayout.Width(54f));
-                        GUILayout.Label(visualProfileProperty.objectReferenceValue != null ? visualProfileProperty.objectReferenceValue.name : "No Profile", EditorStyles.miniLabel);
-                    }
-
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Label($"Grid ({cell.x + 1},{gridHeight - cell.y})", EditorStyles.miniLabel, GUILayout.Width(88f));
-                        GUILayout.Label($"X {localPosition.x:0.00}", EditorStyles.miniLabel, GUILayout.Width(58f));
-                        GUILayout.Label($"Z {localPosition.z:0.00}", EditorStyles.miniLabel, GUILayout.Width(58f));
-                    }
-                }
-
-                if (GUILayout.Button("Select", GUILayout.Width(48f)))
-                {
-                    SelectPlacement(index);
-                }
-
-                if (GUILayout.Button("S", GUILayout.Width(24f)))
-                {
-                    SelectPlacement(index);
-                    FrameSelectedPlacementInScene();
-                }
-            }
-        }
-
-        private void DrawSelectedBoxPanel()
-        {
-            EditorGUILayout.LabelField("Selected Box", EditorStyles.boldLabel);
-
-            if (!HasSelectedPlacement())
-            {
-                EditorGUILayout.HelpBox("Select a box from the grid or list to edit its data and move it in the Scene view.", MessageType.None);
-                return;
-            }
-
-            SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(selectedPlacementIndex);
-            LevelBoxPlacement placement = levelData.BoxPlacements[selectedPlacementIndex];
-            SerializedProperty localPositionProperty = placementProperty.FindPropertyRelative("localPosition");
-            Vector3 previousLocalPosition = localPositionProperty.vector3Value;
-
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.PropertyField(localPositionProperty);
-
-            if (EditorGUI.EndChangeCheck())
-            {
-                localPositionProperty.vector3Value = GetUniqueSnappedPosition(
-                    SnapLocalPosition(localPositionProperty.vector3Value),
-                    selectedPlacementIndex,
-                    previousLocalPosition);
-            }
-
-            SerializedProperty visualProfileProperty = placementProperty.FindPropertyRelative("visualProfile");
-            DrawSelectedPlacementVisualPalette(placementProperty, visualProfileProperty);
-
-            EditorGUI.BeginChangeCheck();
-            int nextCapacity = Mathf.Max(1, EditorGUILayout.IntField("Capacity", placement.Capacity));
-            bool nextIsHidden = EditorGUILayout.Toggle("Is Hidden", placement.IsHidden);
-            int nextFrozenClearsRequired = Mathf.Max(0, EditorGUILayout.IntField("Frozen Clears Required", placement.FrozenClearsRequired));
-
-            if (EditorGUI.EndChangeCheck())
-            {
-                placement.Capacity = nextCapacity;
-                placement.IsHidden = nextIsHidden;
-                placement.FrozenClearsRequired = nextFrozenClearsRequired;
-                PersistLevelDataChanges();
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Apply Brush"))
-                {
-                    ApplyBrushToPlacement(selectedPlacementIndex);
-                }
-
-                if (GUILayout.Button("Delete"))
-                {
-                    RemoveSelectedPlacement();
-                }
-
-                if (GUILayout.Button("Snap"))
-                {
-                    Vector3 localPosition = localPositionProperty.vector3Value;
-                    localPositionProperty.vector3Value = GetUniqueSnappedPosition(
-                        SnapLocalPosition(localPosition),
-                        selectedPlacementIndex,
-                        previousLocalPosition);
-                }
-            }
-        }
-
-        private void DrawSequenceSection()
-        {
-            showSequence = EditorGUILayout.Foldout(showSequence, "Block Sequence", true);
-
-            if (!showSequence)
-            {
-                return;
-            }
-
-            if (autoBuildBlockSequenceFromBoxesProperty.boolValue)
-            {
-                EditorGUILayout.HelpBox("Sequence is generated automatically from box colors and capacities.", MessageType.None);
-                return;
-            }
-
-            EditorGUILayout.PropertyField(blockSequenceProperty, true);
-        }
-
         private void DrawSummarySection()
         {
             EditorGUILayout.LabelField("Summary", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("Box Count", levelData.BoxPlacements.Count.ToString());
-            EditorGUILayout.LabelField("Total Blocks", levelData.TotalBlockCount.ToString());
+            EditorGUILayout.LabelField("Box Count", GetPlacementCount().ToString());
+            EditorGUILayout.LabelField("Total Blocks", GetTotalBlockCountFromSerializedData().ToString());
             EditorGUILayout.LabelField("Sequence Rows", levelData.BlockSequence.Count.ToString());
             EditorGUILayout.LabelField("Lane Count", beltLaneCountProperty.intValue.ToString());
         }
@@ -717,7 +525,7 @@ namespace FlowBlast.Editor
 
             if (placementIndex >= 0)
             {
-                SelectPlacement(placementIndex);
+                UpdatePlacementAtGridCell(placementIndex, column, row);
                 return;
             }
 
@@ -736,6 +544,23 @@ namespace FlowBlast.Editor
             Repaint();
         }
 
+        private void UpdatePlacementAtGridCell(int placementIndex, int column, int row)
+        {
+            if (placementIndex < 0 || placementIndex >= boxPlacementsProperty.arraySize)
+            {
+                return;
+            }
+
+            serializedLevelData.Update();
+            selectedPlacementIndex = placementIndex;
+            ApplyBrushToPlacement(placementIndex);
+            MovePlacementToGridCell(placementIndex, column, row);
+            serializedLevelData.ApplyModifiedProperties();
+            EditorUtility.SetDirty(levelData);
+            Repaint();
+            SceneView.RepaintAll();
+        }
+
         private void ApplyBrushToPlacement(int placementIndex)
         {
             if (placementIndex < 0 || placementIndex >= boxPlacementsProperty.arraySize)
@@ -746,7 +571,6 @@ namespace FlowBlast.Editor
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(placementIndex);
             placementProperty.FindPropertyRelative("visualProfile").objectReferenceValue = brushVisualProfile;
             SyncPlacementColorFromVisualProfile(placementProperty);
-            placementProperty.FindPropertyRelative("capacity").intValue = brushCapacity;
             placementProperty.FindPropertyRelative("isHidden").boolValue = brushHidden;
             placementProperty.FindPropertyRelative("frozenClearsRequired").intValue = brushFrozenClearsRequired;
         }
@@ -1014,6 +838,18 @@ namespace FlowBlast.Editor
             return boxPlacementsProperty != null ? boxPlacementsProperty.arraySize : 0;
         }
 
+        private int GetTotalBlockCountFromSerializedData()
+        {
+            if (boxPlacementsProperty == null)
+            {
+                return 0;
+            }
+
+            SerializedProperty boxCapacityProperty = serializedLevelData.FindProperty("boxCapacity");
+            int safeBoxCapacity = Mathf.Max(1, boxCapacityProperty != null ? boxCapacityProperty.intValue : GameConstants.DefaultBoxCapacity);
+            return boxPlacementsProperty.arraySize * safeBoxCapacity;
+        }
+
         private int AppendPlacement()
         {
             int insertIndex = boxPlacementsProperty.arraySize;
@@ -1021,7 +857,6 @@ namespace FlowBlast.Editor
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(insertIndex);
             placementProperty.FindPropertyRelative("localPosition").vector3Value = Vector3.zero;
             placementProperty.FindPropertyRelative("color").enumValueIndex = (int)BlockColor.Green;
-            placementProperty.FindPropertyRelative("capacity").intValue = GameConstants.DefaultBoxCapacity;
             placementProperty.FindPropertyRelative("isHidden").boolValue = false;
             placementProperty.FindPropertyRelative("frozenClearsRequired").intValue = 0;
             return insertIndex;

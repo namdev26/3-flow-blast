@@ -1,5 +1,4 @@
 #if UNITY_EDITOR
-using FlowBlast.Core.Constants;
 using FlowBlast.Core.Enums;
 using FlowBlast.Data;
 using UnityEditor;
@@ -15,6 +14,7 @@ namespace FlowBlast.Editor
         private SerializedProperty maxBeltSlotsProperty;
         private SerializedProperty maxBacklogBlocksProperty;
         private SerializedProperty beltLaneCountProperty;
+        private SerializedProperty boxCapacityProperty;
         private SerializedProperty autoBuildBlockSequenceFromBoxesProperty;
         private SerializedProperty boxPlacementsProperty;
         private SerializedProperty blockSequenceProperty;
@@ -27,6 +27,7 @@ namespace FlowBlast.Editor
             maxBeltSlotsProperty = serializedObject.FindProperty("maxBeltSlots");
             maxBacklogBlocksProperty = serializedObject.FindProperty("maxBacklogBlocks");
             beltLaneCountProperty = serializedObject.FindProperty("beltLaneCount");
+            boxCapacityProperty = serializedObject.FindProperty("boxCapacity");
             autoBuildBlockSequenceFromBoxesProperty = serializedObject.FindProperty("autoBuildBlockSequenceFromBoxes");
             boxPlacementsProperty = serializedObject.FindProperty("boxPlacements");
             blockSequenceProperty = serializedObject.FindProperty("blockSequence");
@@ -72,6 +73,7 @@ namespace FlowBlast.Editor
             EditorGUILayout.PropertyField(maxBeltSlotsProperty);
             EditorGUILayout.PropertyField(maxBacklogBlocksProperty);
             EditorGUILayout.PropertyField(beltLaneCountProperty);
+            EditorGUILayout.PropertyField(boxCapacityProperty);
             EditorGUILayout.PropertyField(autoBuildBlockSequenceFromBoxesProperty);
         }
 
@@ -102,7 +104,7 @@ namespace FlowBlast.Editor
 
             if (boxPlacementsProperty.arraySize == 0)
             {
-                EditorGUILayout.HelpBox("Add boxes here. Each box stores local position, color, and capacity. Press Play to test the assigned level immediately.", MessageType.Info);
+                EditorGUILayout.HelpBox("Add boxes here. Each box stores local position, color, and state flags. Capacity is shared at the level settings. Press Play to test the assigned level immediately.", MessageType.Info);
                 return;
             }
 
@@ -143,13 +145,11 @@ namespace FlowBlast.Editor
                     SyncPlacementColorFromVisualProfile(placementProperty);
                 }
                 EditorGUI.BeginChangeCheck();
-                int nextCapacity = Mathf.Max(1, EditorGUILayout.IntField("Capacity", placement.Capacity));
                 bool nextIsHidden = EditorGUILayout.Toggle("Is Hidden", placement.IsHidden);
                 int nextFrozenClearsRequired = Mathf.Max(0, EditorGUILayout.IntField("Frozen Clears Required", placement.FrozenClearsRequired));
 
                 if (EditorGUI.EndChangeCheck())
                 {
-                    placement.Capacity = nextCapacity;
                     placement.IsHidden = nextIsHidden;
                     placement.FrozenClearsRequired = nextFrozenClearsRequired;
                     EditorUtility.SetDirty(target);
@@ -189,7 +189,6 @@ namespace FlowBlast.Editor
             boxPlacementsProperty.arraySize++;
             SerializedProperty placementProperty = boxPlacementsProperty.GetArrayElementAtIndex(insertIndex);
             placementProperty.FindPropertyRelative("localPosition").vector3Value = GetNextPlacementPosition();
-            placementProperty.FindPropertyRelative("capacity").intValue = GameConstants.DefaultBoxCapacity;
             placementProperty.FindPropertyRelative("isHidden").boolValue = false;
             placementProperty.FindPropertyRelative("frozenClearsRequired").intValue = 0;
             selectedPlacementIndex = insertIndex;
