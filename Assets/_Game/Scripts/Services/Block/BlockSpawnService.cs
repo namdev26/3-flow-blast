@@ -20,10 +20,11 @@ namespace FlowBlast.Services.Block
         private readonly BlockCollectPresentationService blockCollectPresentationService;
         private readonly BoxBlastService boxBlastService;
 
+        private const float MergeDistanceToleranceFactor = 0.35f;
+
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
         private readonly List<LevelBlockSpawnRow> blockSpawnRows = new List<LevelBlockSpawnRow>();
         private readonly List<float> queueMergeDistances = new List<float>();
-        private readonly HashSet<int> occupiedRowSlots = new HashSet<int>();
 
         private bool isInitialMainPathPrefill = true;
         private int sequenceIndex;
@@ -266,124 +267,67 @@ namespace FlowBlast.Services.Block
                 return true;
             }
 
-            BuildOccupiedRowSlots();
-            int preferredSlot = GetPreferredMergeSlot(spawnDistance);
-
-            if (preferredSlot < 0)
-            {
-                return false;
-            }
-
-            spawnDistance = GetDistanceForRowSlot(preferredSlot);
-            return true;
+            return HasAvailableMergeWindow(spawnDistance);
         }
 
-        private void BuildOccupiedRowSlots()
+        private bool HasAvailableMergeWindow(float spawnDistance)
         {
-            occupiedRowSlots.Clear();
-            int rowCapacity = GetRowCapacity();
-
-            if (rowCapacity <= 0)
-            {
-                return;
-            }
-
-            for (int i = 0; i < activeBlocks.Count; i++)
-            {
-                int slotIndex = GetNearestRowSlotIndex(activeBlocks[i].View.BeltDistance);
-
-                if (slotIndex < 0)
-                {
-                    continue;
-                }
-
-                occupiedRowSlots.Add(slotIndex);
-            }
-        }
-
-        private int GetPreferredMergeSlot(float preferredDistance)
-        {
-            int preferredSlot = GetNearestRowSlotIndex(preferredDistance);
-            int bestMergeSlot = -1;
-            int bestSlotDelta = int.MaxValue;
-            int rowCapacity = GetRowCapacity();
+            float mergeTolerance = GetMergeDistanceTolerance();
 
             for (int i = 0; i < queueMergeDistances.Count; i++)
             {
-                int mergeSlot = GetNearestRowSlotIndex(queueMergeDistances[i]);
+                float distanceToMergePoint = GetWrappedDistanceDelta(spawnDistance, queueMergeDistances[i]);
 
-                if (!IsMergeSlotAvailable(mergeSlot))
+                if (distanceToMergePoint > mergeTolerance)
                 {
                     continue;
                 }
 
-                if (preferredSlot < 0)
-                {
-                    return mergeSlot;
-                }
-
-                int slotDelta = Mathf.Abs(mergeSlot - preferredSlot);
-                slotDelta = Mathf.Min(slotDelta, rowCapacity - slotDelta);
-
-                if (slotDelta >= bestSlotDelta)
+                if (IsSpawnWindowOccupied(queueMergeDistances[i], mergeTolerance))
                 {
                     continue;
                 }
 
-                bestSlotDelta = slotDelta;
-                bestMergeSlot = mergeSlot;
+                return true;
             }
 
-            return bestMergeSlot;
+            return false;
         }
 
-        private bool IsMergeSlotAvailable(int mergeSlot)
+        private bool IsSpawnWindowOccupied(float mergeDistance, float mergeTolerance)
         {
-            if (mergeSlot < 0)
+            for (int i = 0; i < activeBlocks.Count; i++)
             {
-                return false;
+                float activeDistance = activeBlocks[i].View.BeltDistance;
+                float distanceToActiveRow = GetWrappedDistanceDelta(activeDistance, mergeDistance);
+
+                if (distanceToActiveRow < mergeTolerance)
+                {
+                    return true;
+                }
             }
 
-            return !occupiedRowSlots.Contains(mergeSlot);
+            return false;
         }
 
-        private int GetNearestRowSlotIndex(float distance)
+        private float GetMergeDistanceTolerance()
         {
-            int rowCapacity = GetRowCapacity();
-
-            if (rowCapacity <= 0)
-            {
-                return -1;
-            }
-
-            float normalizedDistance = NormalizeDistanceOnMainBelt(distance);
-            int slotIndex = Mathf.RoundToInt(normalizedDistance / rowSpacing) % rowCapacity;
-
-            if (slotIndex < 0)
-            {
-                slotIndex += rowCapacity;
-            }
-
-            return slotIndex;
+            return rowSpacing * MergeDistanceToleranceFactor;
         }
 
-        private float GetDistanceForRowSlot(int slotIndex)
+        private float GetWrappedDistanceDelta(float firstDistance, float secondDistance)
         {
-            int rowCapacity = GetRowCapacity();
+            float pathLength = beltPath.TotalLength;
 
-            if (rowCapacity <= 0)
+            if (pathLength <= Mathf.Epsilon)
             {
-                return 0f;
+                return Mathf.Abs(firstDistance - secondDistance);
             }
 
-            int normalizedSlotIndex = slotIndex % rowCapacity;
-
-            if (normalizedSlotIndex < 0)
-            {
-                normalizedSlotIndex += rowCapacity;
-            }
-
-            return normalizedSlotIndex * rowSpacing;
+            float firstNormalized = NormalizeDistanceOnMainBelt(firstDistance);
+            float secondNormalized = NormalizeDistanceOnMainBelt(secondDistance);
+            float delta = Mathf.Abs(firstNormalized - secondNormalized);
+            return Mathf.Min(delta, pathLength - delta);
         }
 
         private int GetRowCapacity()
