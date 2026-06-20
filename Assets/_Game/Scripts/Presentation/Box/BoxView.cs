@@ -9,6 +9,7 @@ using FlowBlast.Presentation.Belt;
 using FlowBlast.Services.Belt;
 using FlowBlast.Services.Box;
 using UnityEngine;
+using QuickOutline = Outline;
 
 namespace FlowBlast.Presentation.Box
 {
@@ -22,6 +23,7 @@ namespace FlowBlast.Presentation.Box
         [SerializeField] private MeshRenderer meshRenderer;
         [SerializeField] private Transform fillIndicator;
         [SerializeField] private BlockColorPalette colorPalette;
+        [SerializeField] private QuickOutline boxOutline;
 
         [Header("Box Data")]
         [SerializeField] private BlockColor boxColor = BlockColor.Green;
@@ -72,6 +74,11 @@ namespace FlowBlast.Presentation.Box
             {
                 boxVisualTransform = meshRenderer.transform;
                 defaultBoxVisualScale = boxVisualTransform.localScale;
+            }
+
+            if (boxOutline == null)
+            {
+                boxOutline = GetComponentInChildren<QuickOutline>(true);
             }
 
             if (fillIndicator != null)
@@ -138,6 +145,17 @@ namespace FlowBlast.Presentation.Box
             }
 
             UpdateFillIndicator();
+            UpdateBoardAvailabilityOutline(CanReceiveBoardClick);
+        }
+
+        public void UpdateBoardAvailabilityOutline(bool isVisible)
+        {
+            if (boxOutline == null)
+            {
+                return;
+            }
+
+            boxOutline.enabled = isVisible;
         }
 
         public void MoveToBelt()
