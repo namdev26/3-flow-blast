@@ -45,6 +45,7 @@ namespace FlowBlast.Presentation
             }
 
             viewsByBoxId[view.Model.Id] = view;
+            RefreshBoardAvailabilityOutlines();
         }
 
         public bool TryGetView(int boxId, out BoxView view)
@@ -76,6 +77,7 @@ namespace FlowBlast.Presentation
             boxConveyorFollowerRegistry.Unregister(view);
             view.MoveToBelt();
             mainFollowerRegistry.Register(view);
+            RefreshBoardAvailabilityOutlines();
         }
 
         private void OnBoxSentToConveyor(BoxSentToConveyorEvent gameEvent)
@@ -91,6 +93,7 @@ namespace FlowBlast.Presentation
             }
 
             mainFollowerRegistry.Unregister(view);
+            RefreshBoardAvailabilityOutlines();
             int slotIndex = gameEvent.SlotIndex;
             view.FlyToConveyorTarget(
                 () => boxConveyorPath.GetPositionAtDistance(
@@ -119,6 +122,7 @@ namespace FlowBlast.Presentation
             }
 
             view.RefreshPresentation();
+            RefreshBoardAvailabilityOutlines();
         }
 
         private void OnBoxBlasted(BoxBlastedEvent gameEvent)
@@ -138,6 +142,7 @@ namespace FlowBlast.Presentation
             }
 
             view.HideCompleted();
+            RefreshBoardAvailabilityOutlines();
         }
 
         private void OnBoxFrozenUnlocked(BoxFrozenUnlockedEvent gameEvent)
@@ -148,6 +153,22 @@ namespace FlowBlast.Presentation
             }
 
             view.RefreshPresentation();
+            RefreshBoardAvailabilityOutlines();
+        }
+
+        private void RefreshBoardAvailabilityOutlines()
+        {
+            foreach (KeyValuePair<int, BoxView> pair in viewsByBoxId)
+            {
+                BoxView view = pair.Value;
+
+                if (view == null)
+                {
+                    continue;
+                }
+
+                view.UpdateBoardAvailabilityOutline(view.CanReceiveBoardClick);
+            }
         }
     }
 }
