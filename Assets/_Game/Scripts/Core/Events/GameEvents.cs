@@ -89,11 +89,15 @@ namespace FlowBlast.Core.Events
     {
         public string LevelId { get; }
         public string Reason { get; }
+        public bool CanRevive { get; }
+        public int ReviveCountdownSeconds { get; }
 
-        public LevelLostEvent(string levelId, string reason)
+        public LevelLostEvent(string levelId, string reason, bool canRevive = false, int reviveCountdownSeconds = 0)
         {
             LevelId = levelId;
             Reason = reason;
+            CanRevive = canRevive;
+            ReviveCountdownSeconds = reviveCountdownSeconds;
         }
     }
 }

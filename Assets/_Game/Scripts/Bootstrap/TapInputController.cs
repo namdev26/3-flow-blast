@@ -83,7 +83,7 @@ namespace FlowBlast.Bootstrap
 
         private void OnLevelLost(LevelLostEvent gameEvent)
         {
-            Debug.Log($"[FlowBlast] Level lost: {gameEvent.LevelId} | {gameEvent.Reason}");
+            Debug.Log($"[FlowBlast] Level lost: {gameEvent.LevelId} | {gameEvent.Reason} | CanRevive={gameEvent.CanRevive}");
         }
     }
 }

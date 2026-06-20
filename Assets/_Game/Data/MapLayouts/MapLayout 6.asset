@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ce92c4407ab6cff4f95e56c304018b49, type: 3}
+  m_Name: MapLayout 6
+  m_EditorClassIdentifier: 
+  layoutId: MapLayout 6
+  isMainPathClosedLoop: 1
+  mainWaypointLocalPositions:
+  - {x: -2.8, y: 0, z: 0.8}
+  - {x: -2.8, y: 0, z: 3.2}
+  - {x: 2.8, y: 0, z: 3.2}
+  - {x: 2.8, y: 0, z: 0.8}
+  boxQueueLocalPosition: {x: 0, y: 0, z: 3.6000001}
+  collectionPointLocalPosition: {x: 0, y: 0, z: 0.4}
+  mainCurveStrength: 1
+  queuePaths:
+  - queueId: Queue_01
+    displayName: Queue 01
+    isClosedLoop: 0
+    waypointLocalPositions:
+    - {x: 1.6, y: 0, z: 4}
+    - {x: 4.8, y: 0, z: 8.8}
+    - {x: 33.600002, y: 0, z: 10}
+    - {x: 33.600002, y: 0, z: 6}
+    - {x: 11.2, y: 0, z: 6}
+    queueEntryLocalPosition: {x: 0, y: 0, z: 3.6000001}
+    curveStrength: 0
+  - queueId: Queue_02
+    displayName: Queue 02
+    isClosedLoop: 0
+    waypointLocalPositions:
+    - {x: -1.2, y: 0, z: 4}
+    - {x: -6, y: 0, z: 8.8}
+    - {x: -32, y: 0, z: 7.2000003}
+    queueEntryLocalPosition: {x: 0, y: 0, z: 3.6000001}
+    curveStrength: 0

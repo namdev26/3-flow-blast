@@ -1,3 +1,4 @@
+using System;
 using FlowBlast.Core.Enums;
 using FlowBlast.Core.Events;
 using FlowBlast.Data;
@@ -7,6 +8,7 @@ using FlowBlast.Presentation.Box;
 using FlowBlast.Services.Block;
 using FlowBlast.Services.Box;
 using FlowBlast.Services.Belt;
+using UnityEngine;
 
 namespace FlowBlast.Services.Level
 {
@@ -26,6 +28,10 @@ namespace FlowBlast.Services.Level
         private GamePhase currentPhase = GamePhase.Idle;
         private int requiredBoxCount;
         private int completedBoxCount;
+
+        public event Action<int> OnReviveCountdownChanged;
+        public event Action<int> OnRemainingTimeChanged;
+        public event Action OnReviveExpired;
 
         public LevelController(
             IGameEventBus eventBus,
@@ -52,6 +58,8 @@ namespace FlowBlast.Services.Level
         }
 
         public GamePhase CurrentPhase => currentPhase;
+        public float RemainingTimeSeconds => loseConditionEvaluator.RemainingTimeSeconds;
+        public float ReviveCountdownRemainingTimeSeconds => loseConditionEvaluator.ReviveCountdownRemainingSeconds;
 
         public void StartLevel(string levelId)
         {
@@ -76,6 +84,8 @@ namespace FlowBlast.Services.Level
             boxConveyorMovementService.SetSpeed(levelData.BeltSpeed);
             boxConveyorMovementService.Reset();
             blockSpawnService.LoadSequence(levelData.BlockSpawnRows);
+            loseConditionEvaluator.StartLevel();
+            NotifyRemainingTimeChanged();
         }
 
         public void Tick(float deltaTime)
@@ -83,11 +93,19 @@ namespace FlowBlast.Services.Level
             beltMovementService.Tick(deltaTime);
             boxConveyorMovementService.Tick(deltaTime);
 
+            if (currentPhase == GamePhase.Lost && loseConditionEvaluator.IsReviveOfferPending)
+            {
+                TickReviveCountdown(deltaTime);
+                return;
+            }
+
             if (currentPhase != GamePhase.Playing)
             {
                 return;
             }
 
+            loseConditionEvaluator.Tick(deltaTime);
+            NotifyRemainingTimeChanged();
             blockSpawnService.TickCollection();
             EvaluateEndConditions();
         }
@@ -102,6 +120,35 @@ namespace FlowBlast.Services.Level
             return sendBoardBoxToConveyorCommand.Execute(box);
         }
 
+        public bool TryRevive()
+        {
+            if (currentPhase != GamePhase.Lost)
+            {
+                return false;
+            }
+
+            if (!loseConditionEvaluator.TryRevive())
+            {
+                return false;
+            }
+
+            currentPhase = GamePhase.Playing;
+            OnReviveCountdownChanged?.Invoke(0);
+            NotifyRemainingTimeChanged();
+            return true;
+        }
+
+        public void DeclineRevive()
+        {
+            if (currentPhase != GamePhase.Lost)
+            {
+                return;
+            }
+
+            loseConditionEvaluator.DeclineRevive();
+            OnReviveCountdownChanged?.Invoke(0);
+        }
+
         private void OnBoxBlasted(BoxBlastedEvent gameEvent)
         {
             completedBoxCount++;
@@ -112,7 +159,15 @@ namespace FlowBlast.Services.Level
             if (loseConditionEvaluator.IsLose(out string loseReason))
             {
                 currentPhase = GamePhase.Lost;
-                eventBus.Publish(new LevelLostEvent(currentLevel.LevelId, loseReason));
+
+                if (loseConditionEvaluator.TryConsumeReviveOffer(out int countdownSeconds))
+                {
+                    OnReviveCountdownChanged?.Invoke(countdownSeconds);
+                    eventBus.Publish(new LevelLostEvent(currentLevel.LevelId, loseReason, true, countdownSeconds));
+                    return;
+                }
+
+                PublishFinalLose();
                 return;
             }
 
@@ -121,6 +176,36 @@ namespace FlowBlast.Services.Level
                 currentPhase = GamePhase.Won;
                 eventBus.Publish(new LevelWonEvent(currentLevel.LevelId));
             }
+        }
+
+        private void PublishFinalLose()
+        {
+            OnReviveCountdownChanged?.Invoke(0);
+            string loseReason = currentLevel != null ? "Don't give up! Try again!" : string.Empty;
+            string levelId = currentLevel != null ? currentLevel.LevelId : string.Empty;
+            eventBus.Publish(new LevelLostEvent(levelId, loseReason));
+        }
+
+        private void TickReviveCountdown(float deltaTime)
+        {
+            loseConditionEvaluator.Tick(deltaTime);
+
+            if (loseConditionEvaluator.HasReviveCountdownExpired())
+            {
+                loseConditionEvaluator.DeclineRevive();
+                OnReviveExpired?.Invoke();
+                PublishFinalLose();
+                return;
+            }
+
+            int remainingSeconds = Mathf.Max(1, Mathf.CeilToInt(loseConditionEvaluator.ReviveCountdownRemainingSeconds));
+            OnReviveCountdownChanged?.Invoke(remainingSeconds);
+        }
+
+        private void NotifyRemainingTimeChanged()
+        {
+            int remainingSeconds = Mathf.CeilToInt(loseConditionEvaluator.RemainingTimeSeconds);
+            OnRemainingTimeChanged?.Invoke(remainingSeconds);
         }
     }
 }

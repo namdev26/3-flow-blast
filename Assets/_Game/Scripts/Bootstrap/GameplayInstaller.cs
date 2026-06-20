@@ -17,6 +17,7 @@ using FlowBlast.Services.Board;
 using FlowBlast.Services.Box;
 using FlowBlast.Services.Level;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -32,9 +33,13 @@ namespace FlowBlast.Bootstrap
         private const int ExpandedBoardColumnThreshold = 5;
         private const float ExpandedBoardRootScale = 1.4f;
         private const float DenseBoardRootScale = 1f;
+        private const float InitialLoseTimeSeconds = 60f;
+        private const float ReviveBonusTimeSeconds = 30f;
+        private const int ReviveCountdownSeconds = 5;
 
         [Header("Data")]
         [SerializeField] private LevelData levelData;
+        [SerializeField] private List<LevelData> levelSequence = new List<LevelData>();
         [SerializeField] private BlockColorPalette colorPalette;
 
         [Header("Prefabs")]
@@ -55,7 +60,16 @@ namespace FlowBlast.Bootstrap
         [SerializeField] private GameplayLoop gameplayLoop;
         [SerializeField] private TapInputController tapInputController;
 
+        [Header("UI")]
+        [SerializeField] private GameObject winPopupPrefab;
+        [SerializeField] private GameObject losePopupPrefab;
+        [SerializeField] private GameObject revivePopupPrefab;
+
         private GameplayContext context;
+        private WinPopupFlow winPopupFlow;
+        private LosePopupFlow losePopupFlow;
+        private RevivePopupFlow revivePopupFlow;
+        private GameplayTimerOverlayFlow gameplayTimerOverlayFlow;
         private Vector3 initialBoardRootScale = Vector3.one;
 
         public GameplayContext Context => context;
@@ -71,6 +85,10 @@ namespace FlowBlast.Bootstrap
             }
 
             context = BuildContext();
+            winPopupFlow = CreateWinPopupFlow();
+            losePopupFlow = CreateLosePopupFlow();
+            revivePopupFlow = CreateRevivePopupFlow();
+            gameplayTimerOverlayFlow = CreateGameplayTimerOverlayFlow();
             gameplayLoop.Initialize(context);
             tapInputController.Initialize(context);
         }
@@ -82,6 +100,8 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
+            GameplayProgressionState.SetLevelSequence(levelSequence);
+            GameplayProgressionState.ActiveLevelData = levelData;
             SpawnBoardLevelBoxes();
             RegisterCreatedBoxViews();
             context.LevelController.StartLevel(levelData);
@@ -164,6 +184,10 @@ namespace FlowBlast.Bootstrap
 
         private void ResolveMissingReferences()
         {
+            levelData = GameplayProgressionState.ActiveLevelData != null
+                ? GameplayProgressionState.ActiveLevelData
+                : levelData;
+
 #if UNITY_EDITOR
             if (levelData == null)
             {
@@ -183,6 +207,21 @@ namespace FlowBlast.Bootstrap
             if (boxPrefab == null)
             {
                 boxPrefab = AssetDatabase.LoadAssetAtPath<BoxView>(DefaultBoxPrefabPath);
+            }
+
+            if (winPopupPrefab == null)
+            {
+                winPopupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/UI/Popup_Win.prefab");
+            }
+
+            if (losePopupPrefab == null)
+            {
+                losePopupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/UI/Popup_Lose.prefab");
+            }
+
+            if (revivePopupPrefab == null)
+            {
+                revivePopupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Game/Prefabs/UI/Popup_Revive.prefab");
             }
 #endif
 
@@ -248,6 +287,79 @@ namespace FlowBlast.Bootstrap
             }
 
             return TransformHierarchyUtility.FindChildRecursive(transform, childName);
+        }
+
+        private WinPopupFlow CreateWinPopupFlow()
+        {
+            if (context == null || winPopupPrefab == null)
+            {
+                return null;
+            }
+
+            GameObject popupInstance = InstantiatePopup(winPopupPrefab);
+            return new WinPopupFlow(context.EventBus, popupInstance, LoadNextLevel);
+        }
+
+        private LosePopupFlow CreateLosePopupFlow()
+        {
+            if (context == null || losePopupPrefab == null)
+            {
+                return null;
+            }
+
+            GameObject popupInstance = InstantiatePopup(losePopupPrefab);
+            return new LosePopupFlow(context.EventBus, popupInstance, ReloadCurrentLevel, ReloadCurrentLevel);
+        }
+
+        private RevivePopupFlow CreateRevivePopupFlow()
+        {
+            if (context == null || revivePopupPrefab == null)
+            {
+                return null;
+            }
+
+            GameObject popupInstance = InstantiatePopup(revivePopupPrefab);
+            return new RevivePopupFlow(context.EventBus, popupInstance, context.LevelController, HandleReviveRequested, ReloadCurrentLevel);
+        }
+
+        private GameplayTimerOverlayFlow CreateGameplayTimerOverlayFlow()
+        {
+            if (context == null)
+            {
+                return null;
+            }
+
+            return new GameplayTimerOverlayFlow(transform, context.LevelController);
+        }
+
+        private GameObject InstantiatePopup(GameObject popupPrefab)
+        {
+            GameObject popupInstance = Instantiate(popupPrefab, transform);
+            popupInstance.name = popupPrefab.name;
+            return popupInstance;
+        }
+
+        private void HandleReviveRequested()
+        {
+            context.LevelController.TryRevive();
+        }
+
+        private void LoadNextLevel()
+        {
+            GameplayProgressionState.ActiveLevelData = GameplayProgressionState.GetNextLevel(levelData);
+            ReloadScene();
+        }
+
+        private void ReloadCurrentLevel()
+        {
+            GameplayProgressionState.ActiveLevelData = levelData;
+            ReloadScene();
+        }
+
+        private void ReloadScene()
+        {
+            string activeSceneName = SceneManager.GetActiveScene().name;
+            SceneManager.LoadScene(activeSceneName);
         }
 
         private bool TryResolveCollectionPointWorldPosition(out Vector3 worldPosition)
@@ -396,7 +508,10 @@ namespace FlowBlast.Bootstrap
                 blockSpawnService,
                 beltSlotService,
                 boxConveyorSlotService);
-            LoseConditionEvaluator loseEvaluator = new LoseConditionEvaluator(blockSpawnService, maxBacklog);
+            LoseConditionEvaluator loseEvaluator = new LoseConditionEvaluator(
+                InitialLoseTimeSeconds,
+                ReviveBonusTimeSeconds,
+                ReviveCountdownSeconds);
             LevelRepository levelRepository = new LevelRepository(levelData);
 
             SendBoardBoxToConveyorCommand sendBoardBoxCommand = new SendBoardBoxToConveyorCommand(
@@ -688,5 +803,12 @@ namespace FlowBlast.Bootstrap
             }
         }
 
+        private void OnDestroy()
+        {
+            winPopupFlow?.Dispose();
+            losePopupFlow?.Dispose();
+            revivePopupFlow?.Dispose();
+            gameplayTimerOverlayFlow?.Dispose();
+        }
     }
 }
