@@ -29,6 +29,7 @@ namespace FlowBlast.Editor
         private BeltPath beltPath;
         private readonly List<BeltPath> queueBeltPaths = new List<BeltPath>();
         private Transform boxQueueParent;
+        private Transform collectionPointMarker;
         private MapEditorSettings settings;
         private LevelMapLayout layoutAsset;
         private LevelMapLayout trackedLayoutAsset;
@@ -37,6 +38,7 @@ namespace FlowBlast.Editor
         private Vector2 canvasPan = Vector2.zero;
         private Vector2 sidebarScrollPosition;
         private bool isBoxQueueSelected;
+        private bool isCollectionPointSelected;
         private bool showSceneSync;
         private int activeQueueIndex = -1;
 
@@ -124,12 +126,14 @@ namespace FlowBlast.Editor
                 AssignPathTarget(targetPath);
                 ResolveQueueBeltPaths();
                 ResolveBoxQueueParent();
+                ResolveCollectionPointMarker();
                 return;
             }
 
             beltPath = ResolveMainConveyorBeltPath();
             ResolveQueueBeltPaths();
             ResolveBoxQueueParent();
+            ResolveCollectionPointMarker();
         }
 
         private void AssignPathTarget(BeltPath targetPath)
@@ -293,6 +297,23 @@ namespace FlowBlast.Editor
                 : null;
         }
 
+        private void ResolveCollectionPointMarker()
+        {
+            GameplayInstaller installer = ResolveInstaller();
+
+            if (installer == null)
+            {
+                collectionPointMarker = null;
+                return;
+            }
+
+            SerializedObject serializedInstaller = new SerializedObject(installer);
+            SerializedProperty collectionPointMarkerProperty = serializedInstaller.FindProperty("collectionPointMarker");
+            collectionPointMarker = collectionPointMarkerProperty != null
+                ? collectionPointMarkerProperty.objectReferenceValue as Transform
+                : null;
+        }
+
         private void OnGUI()
         {
             settings = (MapEditorSettings)EditorGUILayout.ObjectField("Editor Settings", settings, typeof(MapEditorSettings), false);
@@ -345,6 +366,7 @@ namespace FlowBlast.Editor
         {
             activeQueueIndex = -1;
             isBoxQueueSelected = false;
+            isCollectionPointSelected = false;
             mainEditState.SelectedWaypointIndex = -1;
         }
 
@@ -352,6 +374,7 @@ namespace FlowBlast.Editor
         {
             activeQueueIndex = Mathf.Clamp(index, 0, queueEditStates.Count - 1);
             isBoxQueueSelected = false;
+            isCollectionPointSelected = false;
             ActiveEditState.SelectedWaypointIndex = -1;
         }
 
@@ -444,7 +467,8 @@ namespace FlowBlast.Editor
                 ActivePathRole,
                 ref canvasZoom,
                 ref canvasPan,
-                ref isBoxQueueSelected);
+                ref isBoxQueueSelected,
+                ref isCollectionPointSelected);
         }
 
         private IReadOnlyList<MapLayoutEditState> GetVisibleEditStates()
@@ -503,11 +527,21 @@ namespace FlowBlast.Editor
             if (isBoxQueueSelected)
             {
                 EditorGUI.BeginChangeCheck();
-                Vector3 queuePosition = EditorGUILayout.Vector3Field("Box Queue", ActiveEditState.BoxQueueLocalPosition);
+                Vector3 queuePosition = EditorGUILayout.Vector3Field("Queue Entry", ActiveEditState.BoxQueueLocalPosition);
 
                 if (EditorGUI.EndChangeCheck())
                 {
                     SetSharedQueuePosition(queuePosition);
+                }
+            }
+            else if (isCollectionPointSelected)
+            {
+                EditorGUI.BeginChangeCheck();
+                Vector3 collectionPointPosition = EditorGUILayout.Vector3Field("Collection Point", ActiveEditState.CollectionPointLocalPosition);
+
+                if (EditorGUI.EndChangeCheck())
+                {
+                    SetSharedCollectionPointPosition(collectionPointPosition);
                 }
             }
             else if (ActiveEditState.SelectedWaypointIndex >= 0
@@ -553,7 +587,7 @@ namespace FlowBlast.Editor
             }
             else
             {
-                EditorGUILayout.HelpBox("Select a waypoint or Box Queue on the canvas.", MessageType.None);
+                EditorGUILayout.HelpBox("Select a waypoint, queue entry, or collection point on the canvas.", MessageType.None);
             }
 
             if (settings != null)
@@ -595,7 +629,8 @@ namespace FlowBlast.Editor
             }
 
             beltPath = (BeltPath)EditorGUILayout.ObjectField("Main Belt Path", beltPath, typeof(BeltPath), true);
-            boxQueueParent = (Transform)EditorGUILayout.ObjectField("Box Queue", boxQueueParent, typeof(Transform), true);
+            boxQueueParent = (Transform)EditorGUILayout.ObjectField("Queue Entry Anchor", boxQueueParent, typeof(Transform), true);
+            collectionPointMarker = (Transform)EditorGUILayout.ObjectField("Collection Point Anchor", collectionPointMarker, typeof(Transform), true);
 
             EditorGUILayout.LabelField("Queue Belt Paths", EditorStyles.miniBoldLabel);
 
@@ -630,6 +665,7 @@ namespace FlowBlast.Editor
             MapLayoutEditState editState = new MapLayoutEditState();
             editState.InitializeQueueIdentity(queueId, displayName);
             editState.SetBoxQueuePosition(mainEditState.BoxQueueLocalPosition);
+            editState.SetCollectionPointPosition(mainEditState.CollectionPointLocalPosition);
             queueEditStates.Add(editState);
             activeQueueIndex = queueEditStates.Count - 1;
             isBoxQueueSelected = false;
@@ -700,6 +736,7 @@ namespace FlowBlast.Editor
                 ImportAllFromScene();
                 trackedLayoutAsset = null;
                 isBoxQueueSelected = false;
+                isCollectionPointSelected = false;
                 Repaint();
                 return;
             }
@@ -723,6 +760,9 @@ namespace FlowBlast.Editor
 
             trackedLayoutAsset = layoutAsset;
             isBoxQueueSelected = false;
+            isCollectionPointSelected = false;
+            SyncSharedQueuePosition();
+            SyncSharedCollectionPointPosition();
             ClampActiveQueueIndex();
             Repaint();
         }
@@ -741,6 +781,9 @@ namespace FlowBlast.Editor
             {
                 queueEditStates[i].WriteQueuePathTo(layoutAsset);
             }
+
+            layoutAsset.SetBoxQueueLocalPosition(mainEditState.BoxQueueLocalPosition);
+            layoutAsset.SetCollectionPointLocalPosition(mainEditState.CollectionPointLocalPosition);
 
             HashSet<string> validQueueIds = new HashSet<string>();
 
@@ -778,9 +821,16 @@ namespace FlowBlast.Editor
 
             if (boxQueueParent != null)
             {
-                Undo.RecordObject(boxQueueParent, "Apply Box Queue Position");
+                Undo.RecordObject(boxQueueParent, "Apply Queue Entry Position");
                 boxQueueParent.localPosition = ActiveEditState.BoxQueueLocalPosition;
                 EditorUtility.SetDirty(boxQueueParent);
+            }
+
+            if (collectionPointMarker != null)
+            {
+                Undo.RecordObject(collectionPointMarker, "Apply Collection Point Position");
+                collectionPointMarker.localPosition = ActiveEditState.CollectionPointLocalPosition;
+                EditorUtility.SetDirty(collectionPointMarker);
             }
 
             if (layoutAsset != null)
@@ -802,15 +852,16 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            ActiveEditState.LoadFromScene(activePath, boxQueueParent);
+            ActiveEditState.LoadFromScene(activePath, boxQueueParent, collectionPointMarker);
             SyncSharedQueuePosition();
+            SyncSharedCollectionPointPosition();
         }
 
         private void ImportAllFromScene()
         {
             if (beltPath != null)
             {
-                mainEditState.LoadFromScene(beltPath, boxQueueParent);
+                mainEditState.LoadFromScene(beltPath, boxQueueParent, collectionPointMarker);
             }
             else
             {
@@ -827,11 +878,12 @@ namespace FlowBlast.Editor
                 }
 
                 MapLayoutEditState queueState = new MapLayoutEditState();
-                queueState.LoadFromScene(queueBeltPaths[i], boxQueueParent);
+                queueState.LoadFromScene(queueBeltPaths[i], boxQueueParent, collectionPointMarker);
                 queueEditStates.Add(queueState);
             }
 
             SyncSharedQueuePosition();
+            SyncSharedCollectionPointPosition();
             ClampActiveQueueIndex();
         }
 
@@ -847,6 +899,18 @@ namespace FlowBlast.Editor
             SetSharedQueuePosition(queuePosition);
         }
 
+        private void SyncSharedCollectionPointPosition()
+        {
+            Vector3 collectionPointPosition = mainEditState.CollectionPointLocalPosition;
+
+            if (activeQueueIndex >= 0 && activeQueueIndex < queueEditStates.Count)
+            {
+                collectionPointPosition = queueEditStates[activeQueueIndex].CollectionPointLocalPosition;
+            }
+
+            SetSharedCollectionPointPosition(collectionPointPosition);
+        }
+
         private void SetSharedQueuePosition(Vector3 queuePosition)
         {
             mainEditState.SetBoxQueuePosition(queuePosition);
@@ -854,6 +918,16 @@ namespace FlowBlast.Editor
             for (int i = 0; i < queueEditStates.Count; i++)
             {
                 queueEditStates[i].SetBoxQueuePosition(queuePosition);
+            }
+        }
+
+        private void SetSharedCollectionPointPosition(Vector3 collectionPointPosition)
+        {
+            mainEditState.SetCollectionPointPosition(collectionPointPosition);
+
+            for (int i = 0; i < queueEditStates.Count; i++)
+            {
+                queueEditStates[i].SetCollectionPointPosition(collectionPointPosition);
             }
         }
 
@@ -869,6 +943,9 @@ namespace FlowBlast.Editor
             {
                 queueEditStates[i].WriteQueuePathTo(layout);
             }
+
+            layout.SetBoxQueueLocalPosition(mainEditState.BoxQueueLocalPosition);
+            layout.SetCollectionPointLocalPosition(mainEditState.CollectionPointLocalPosition);
 
             AssetDatabase.CreateAsset(layout, assetPath);
             AssetDatabase.SaveAssets();

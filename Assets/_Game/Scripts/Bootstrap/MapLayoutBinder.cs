@@ -14,6 +14,7 @@ namespace FlowBlast.Bootstrap
         [SerializeField] private BeltPath beltPath;
         [SerializeField] private List<BeltPath> queueBeltPaths = new List<BeltPath>();
         [SerializeField] private Transform boxQueueParent;
+        [SerializeField] private Transform collectionPointMarker;
         [SerializeField] private BeltWaypointMarker waypointPrefab;
         [SerializeField] private bool applyOnAwake = true;
         [SerializeField] private bool applyInEditMode = true;
@@ -41,7 +42,7 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
-            MapLayoutApplicator.Apply(mapLayout, beltPath, queueBeltPaths, boxQueueParent, waypointPrefab);
+            MapLayoutApplicator.Apply(mapLayout, beltPath, queueBeltPaths, boxQueueParent, waypointPrefab, collectionPointMarker);
 
 #if UNITY_EDITOR
             lastAppliedLayout = mapLayout;
@@ -64,6 +65,11 @@ namespace FlowBlast.Bootstrap
             {
                 UnityEditor.EditorUtility.SetDirty(boxQueueParent);
             }
+
+            if (collectionPointMarker != null)
+            {
+                UnityEditor.EditorUtility.SetDirty(collectionPointMarker);
+            }
 #endif
         }
 
@@ -76,7 +82,7 @@ namespace FlowBlast.Bootstrap
                 return;
             }
 
-            MapLayoutApplicator.Capture(mapLayout, beltPath, queueBeltPaths, boxQueueParent);
+            MapLayoutApplicator.Capture(mapLayout, beltPath, queueBeltPaths, boxQueueParent, collectionPointMarker);
         }
 
         public void SetMapLayout(LevelMapLayout layout)
@@ -106,6 +112,13 @@ namespace FlowBlast.Bootstrap
                 boxQueueParent = TransformHierarchyUtility.FindChildRecursive(
                     transform,
                     GameplayZoneNames.BoxQueueParent);
+            }
+
+            if (collectionPointMarker == null)
+            {
+                collectionPointMarker = TransformHierarchyUtility.FindChildRecursive(
+                    transform,
+                    GameplayZoneNames.CollectionPointMarker);
             }
 
 #if UNITY_EDITOR

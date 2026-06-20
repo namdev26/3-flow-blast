@@ -11,7 +11,8 @@ namespace FlowBlast.Data
             BeltPath mainBeltPath,
             IReadOnlyList<BeltPath> queueBeltPaths,
             Transform boxQueueParent,
-            BeltWaypointMarker waypointPrefab)
+            BeltWaypointMarker waypointPrefab,
+            Transform collectionPointMarker = null)
         {
             if (layout == null)
             {
@@ -55,13 +56,19 @@ namespace FlowBlast.Data
             {
                 boxQueueParent.localPosition = layout.BoxQueueLocalPosition;
             }
+
+            if (collectionPointMarker != null)
+            {
+                collectionPointMarker.localPosition = layout.CollectionPointLocalPosition;
+            }
         }
 
         public static void Capture(
             LevelMapLayout layout,
             BeltPath mainBeltPath,
             IReadOnlyList<BeltPath> queueBeltPaths,
-            Transform boxQueueParent)
+            Transform boxQueueParent,
+            Transform collectionPointMarker = null)
         {
             if (layout == null)
             {
@@ -71,6 +78,7 @@ namespace FlowBlast.Data
             CaptureMainPath(mainBeltPath, layout);
             CaptureQueuePaths(queueBeltPaths, layout);
             layout.SetBoxQueueLocalPosition(boxQueueParent != null ? boxQueueParent.localPosition : Vector3.zero);
+            layout.SetCollectionPointLocalPosition(collectionPointMarker != null ? collectionPointMarker.localPosition : Vector3.zero);
         }
 
         private static void CaptureMainPath(BeltPath mainBeltPath, LevelMapLayout layout)

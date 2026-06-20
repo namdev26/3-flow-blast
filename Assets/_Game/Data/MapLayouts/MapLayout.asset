@@ -20,7 +20,8 @@ MonoBehaviour:
   - {x: 2.4, y: 0, z: 3.2}
   - {x: 4, y: 0, z: -0}
   boxQueueLocalPosition: {x: -6, y: 0, z: 6}
-  mainCurveStrength: 0.5
+  collectionPointLocalPosition: {x: 0, y: 0, z: 3}
+  mainCurveStrength: 0.591
   queuePaths:
   - queueId: Queue_01
     displayName: Queue 01

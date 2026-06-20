@@ -11,6 +11,7 @@ namespace FlowBlast.Data
         [SerializeField] private bool isMainPathClosedLoop = true;
         [SerializeField] private List<Vector3> mainWaypointLocalPositions = new List<Vector3>();
         [SerializeField] private Vector3 boxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
+        [SerializeField] private Vector3 collectionPointLocalPosition = new Vector3(0f, 0f, 3f);
         [SerializeField] private float mainCurveStrength = 1f;
         [SerializeField] private List<QueuePathLayout> queuePaths = new List<QueuePathLayout>();
 
@@ -18,6 +19,7 @@ namespace FlowBlast.Data
         public bool IsMainPathClosedLoop => isMainPathClosedLoop;
         public IReadOnlyList<Vector3> MainWaypointLocalPositions => mainWaypointLocalPositions;
         public Vector3 BoxQueueLocalPosition => boxQueueLocalPosition;
+        public Vector3 CollectionPointLocalPosition => collectionPointLocalPosition;
         public float MainCurveStrength => mainCurveStrength;
         public IReadOnlyList<QueuePathLayout> QueuePaths => queuePaths;
 
@@ -94,21 +96,28 @@ namespace FlowBlast.Data
             boxQueueLocalPosition = localPosition;
         }
 
+        public void SetCollectionPointLocalPosition(Vector3 localPosition)
+        {
+            collectionPointLocalPosition = localPosition;
+        }
+
         public void ApplyTo(
             BeltPath mainBeltPath,
             IReadOnlyList<BeltPath> queueBeltPaths,
             Transform boxQueueParent,
-            BeltWaypointMarker waypointPrefab)
+            BeltWaypointMarker waypointPrefab,
+            Transform collectionPointMarker = null)
         {
-            MapLayoutApplicator.Apply(this, mainBeltPath, queueBeltPaths, boxQueueParent, waypointPrefab);
+            MapLayoutApplicator.Apply(this, mainBeltPath, queueBeltPaths, boxQueueParent, waypointPrefab, collectionPointMarker);
         }
 
         public void CaptureFrom(
             BeltPath mainBeltPath,
             IReadOnlyList<BeltPath> queueBeltPaths,
-            Transform boxQueueParent)
+            Transform boxQueueParent,
+            Transform collectionPointMarker = null)
         {
-            MapLayoutApplicator.Capture(this, mainBeltPath, queueBeltPaths, boxQueueParent);
+            MapLayoutApplicator.Capture(this, mainBeltPath, queueBeltPaths, boxQueueParent, collectionPointMarker);
         }
 
         private QueuePathLayout GetOrCreateQueuePath(string queueId, string displayName)

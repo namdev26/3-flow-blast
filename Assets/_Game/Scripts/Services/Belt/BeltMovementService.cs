@@ -8,17 +8,20 @@ namespace FlowBlast.Services.Belt
     {
         private readonly IBeltPath beltPath;
         private readonly BeltFollowerRegistry followerRegistry;
-        private readonly Transform collectionPointMarker;
+        private readonly bool hasCollectionPointOverride;
+        private readonly Vector3 collectionPointWorldPosition;
         private float beltSpeed;
 
         public BeltMovementService(
             IBeltPath beltPath,
             BeltFollowerRegistry followerRegistry,
-            Transform collectionPointMarker)
+            Vector3 collectionPointWorldPosition,
+            bool hasCollectionPointOverride)
         {
             this.beltPath = beltPath;
             this.followerRegistry = followerRegistry;
-            this.collectionPointMarker = collectionPointMarker;
+            this.collectionPointWorldPosition = collectionPointWorldPosition;
+            this.hasCollectionPointOverride = hasCollectionPointOverride;
         }
 
         public void SetSpeed(float speed)
@@ -51,7 +54,7 @@ namespace FlowBlast.Services.Belt
 
         public bool IsNearCollectionPoint(float beltDistance)
         {
-            if (collectionPointMarker == null)
+            if (!hasCollectionPointOverride)
             {
                 return BeltCollectionUtility.IsNearCollectionPoint(
                     beltDistance,
@@ -59,7 +62,7 @@ namespace FlowBlast.Services.Belt
                     beltPath.NormalizeDistance(beltDistance));
             }
 
-            float collectionPointDistance = beltPath.GetClosestDistance(collectionPointMarker.position);
+            float collectionPointDistance = beltPath.GetClosestDistance(collectionPointWorldPosition);
             return Mathf.Abs(Mathf.DeltaAngle(
                 beltPath.NormalizeDistance(beltDistance) * 360f,
                 beltPath.NormalizeDistance(collectionPointDistance) * 360f))

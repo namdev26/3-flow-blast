@@ -250,6 +250,19 @@ namespace FlowBlast.Bootstrap
             return TransformHierarchyUtility.FindChildRecursive(transform, childName);
         }
 
+        private bool TryResolveCollectionPointWorldPosition(out Vector3 worldPosition)
+        {
+            worldPosition = Vector3.zero;
+
+            if (levelData?.MapLayout == null)
+            {
+                return false;
+            }
+
+            worldPosition = beltPath.transform.TransformPoint(levelData.MapLayout.CollectionPointLocalPosition);
+            return true;
+        }
+
         private bool ValidateReferences()
         {
             if (levelData == null)
@@ -331,10 +344,12 @@ namespace FlowBlast.Bootstrap
             BoxConveyorSlotService boxConveyorSlotService = new BoxConveyorSlotService(
                 GameConstants.DefaultMaxBoxConveyorSlots);
             BoxRegistryService boxRegistryService = new BoxRegistryService();
+            bool hasCollectionPointOverride = TryResolveCollectionPointWorldPosition(out Vector3 collectionPointWorldPosition);
             BeltMovementService beltMovementService = new BeltMovementService(
                 beltPath,
                 followerRegistry,
-                collectionPointMarker);
+                collectionPointWorldPosition,
+                hasCollectionPointOverride);
             beltMovementService.SetSpeed(beltSpeed);
             BoxConveyorMovementService boxConveyorMovementService = new BoxConveyorMovementService(
                 boxConveyorPath,

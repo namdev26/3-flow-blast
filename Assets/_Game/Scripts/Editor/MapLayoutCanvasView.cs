@@ -14,12 +14,14 @@ namespace FlowBlast.Editor
         private const float MaxZoom = 80f;
         private const float WaypointHitRadius = 12f;
         private const float QueueHitRadius = 14f;
+        private const float CollectionPointHitRadius = 14f;
         private const float VisibleAreaMinX = -4f;
         private const float VisibleAreaMaxX = 4f;
         private const float VisibleAreaMinZ = 0f;
         private const float VisibleAreaMaxZ = 4f;
         private static readonly Color VisibleAreaFillColor = new Color(0.2f, 0.7f, 1f, 0.08f);
         private static readonly Color VisibleAreaOutlineColor = new Color(0.2f, 0.7f, 1f, 0.85f);
+        private static readonly Color CollectionPointColor = new Color(1f, 0.35f, 0.35f, 0.95f);
 
         private static readonly int CanvasControlId = "MapLayoutCanvas".GetHashCode();
 
@@ -31,7 +33,8 @@ namespace FlowBlast.Editor
             BeltPathRole activePathRole,
             ref float zoom,
             ref Vector2 pan,
-            ref bool isBoxQueueSelected)
+            ref bool isBoxQueueSelected,
+            ref bool isCollectionPointSelected)
         {
             if (activeEditState == null)
             {
@@ -40,8 +43,24 @@ namespace FlowBlast.Editor
 
             MapEditorSettings activeSettings = settings ?? BeltPathEditorUtility.LoadSettings();
             DrawBackground(rect);
-            HandleInput(rect, activeEditState, activeSettings, ref zoom, ref pan, ref isBoxQueueSelected);
-            DrawContent(rect, activeEditState, visibleEditStates, activeSettings, activePathRole, zoom, pan, isBoxQueueSelected);
+            HandleInput(
+                rect,
+                activeEditState,
+                activeSettings,
+                ref zoom,
+                ref pan,
+                ref isBoxQueueSelected,
+                ref isCollectionPointSelected);
+            DrawContent(
+                rect,
+                activeEditState,
+                visibleEditStates,
+                activeSettings,
+                activePathRole,
+                zoom,
+                pan,
+                isBoxQueueSelected,
+                isCollectionPointSelected);
 
             if (Event.current.type == EventType.Repaint)
             {
@@ -71,7 +90,8 @@ namespace FlowBlast.Editor
             BeltPathRole activePathRole,
             float zoom,
             Vector2 pan,
-            bool isBoxQueueSelected)
+            bool isBoxQueueSelected,
+            bool isCollectionPointSelected)
         {
             if (Event.current.type != EventType.Repaint)
             {
@@ -102,6 +122,7 @@ namespace FlowBlast.Editor
 
             DrawPathSet(rect, activeEditState, settings, activePathRole, true, zoom, pan);
             DrawBoxQueue(rect, activeEditState.BoxQueueLocalPosition, settings, zoom, pan, isBoxQueueSelected);
+            DrawCollectionPoint(rect, activeEditState.CollectionPointLocalPosition, zoom, pan, isCollectionPointSelected);
             Handles.EndGUI();
         }
 
@@ -308,7 +329,22 @@ namespace FlowBlast.Editor
                 ? Color.white
                 : new Color(settings.BoxQueueColor.r, settings.BoxQueueColor.g, settings.BoxQueueColor.b, 0.95f);
             Handles.DrawSolidDisc(canvasPoint, Vector3.forward, radius);
-            Handles.Label(canvasPoint + new Vector2(12f, -8f), "Queue");
+            Handles.Label(canvasPoint + new Vector2(12f, -8f), "Queue In");
+        }
+
+        private static void DrawCollectionPoint(
+            Rect rect,
+            Vector3 localPosition,
+            float zoom,
+            Vector2 pan,
+            bool isSelected)
+        {
+            Vector2 canvasPoint = WorldToCanvas(localPosition, rect, zoom, pan);
+            float radius = isSelected ? 11f : 9f;
+
+            Handles.color = isSelected ? Color.white : CollectionPointColor;
+            Handles.DrawSolidDisc(canvasPoint, Vector3.forward, radius);
+            Handles.Label(canvasPoint + new Vector2(12f, -8f), "Collect");
         }
 
         private static void DrawHelpOverlay(Rect rect)
@@ -320,7 +356,7 @@ namespace FlowBlast.Editor
 
             GUI.Label(
                 new Rect(rect.x + 8f, rect.yMax - 36f, rect.width - 16f, 32f),
-                "All queue paths are visible  |  Edit selected path  |  Drag: move  |  Click empty: add WP  |  Scroll: zoom  |  Alt+Drag: pan  |  Del: remove",
+                "All queue paths are visible  |  Drag points directly  |  Click empty: add WP  |  Queue In + Collect are per-level markers  |  Scroll: zoom  |  Alt+Drag: pan",
                 style);
         }
 
@@ -330,7 +366,8 @@ namespace FlowBlast.Editor
             MapEditorSettings settings,
             ref float zoom,
             ref Vector2 pan,
-            ref bool isBoxQueueSelected)
+            ref bool isBoxQueueSelected,
+            ref bool isCollectionPointSelected)
         {
             Event currentEvent = Event.current;
 
@@ -358,7 +395,16 @@ namespace FlowBlast.Editor
                     }
                     else if (currentEvent.button == 0)
                     {
-                        HandleLeftMouseDown(rect, editState, settings, zoom, pan, ref isBoxQueueSelected, cellSize, controlId);
+                        HandleLeftMouseDown(
+                            rect,
+                            editState,
+                            settings,
+                            zoom,
+                            pan,
+                            ref isBoxQueueSelected,
+                            ref isCollectionPointSelected,
+                            cellSize,
+                            controlId);
                         currentEvent.Use();
                     }
 
@@ -373,7 +419,15 @@ namespace FlowBlast.Editor
                     }
                     else if (GUIUtility.hotControl == controlId + 1)
                     {
-                        DragSelected(rect, editState, settings, zoom, pan, isBoxQueueSelected, cellSize);
+                        DragSelected(
+                            rect,
+                            editState,
+                            settings,
+                            zoom,
+                            pan,
+                            isBoxQueueSelected,
+                            isCollectionPointSelected,
+                            cellSize);
                         currentEvent.Use();
                         GUI.changed = true;
                     }
@@ -396,6 +450,7 @@ namespace FlowBlast.Editor
                         {
                             editState.RemoveWaypoint(editState.SelectedWaypointIndex);
                             isBoxQueueSelected = false;
+                            isCollectionPointSelected = false;
                             currentEvent.Use();
                             GUI.changed = true;
                         }
@@ -412,6 +467,7 @@ namespace FlowBlast.Editor
             float zoom,
             Vector2 pan,
             ref bool isBoxQueueSelected,
+            ref bool isCollectionPointSelected,
             float cellSize,
             int controlId)
         {
@@ -422,6 +478,7 @@ namespace FlowBlast.Editor
             {
                 editState.SelectedWaypointIndex = waypointHit;
                 isBoxQueueSelected = false;
+                isCollectionPointSelected = false;
                 GUIUtility.hotControl = controlId + 1;
                 return;
             }
@@ -430,6 +487,16 @@ namespace FlowBlast.Editor
             {
                 editState.SelectedWaypointIndex = -1;
                 isBoxQueueSelected = true;
+                isCollectionPointSelected = false;
+                GUIUtility.hotControl = controlId + 1;
+                return;
+            }
+
+            if (HitTestCollectionPoint(rect, editState.CollectionPointLocalPosition, zoom, pan, mouse))
+            {
+                editState.SelectedWaypointIndex = -1;
+                isBoxQueueSelected = false;
+                isCollectionPointSelected = true;
                 GUIUtility.hotControl = controlId + 1;
                 return;
             }
@@ -443,6 +510,7 @@ namespace FlowBlast.Editor
 
             editState.AddWaypoint(localPosition);
             isBoxQueueSelected = false;
+            isCollectionPointSelected = false;
             GUI.changed = true;
         }
 
@@ -453,6 +521,7 @@ namespace FlowBlast.Editor
             float zoom,
             Vector2 pan,
             bool isBoxQueueSelected,
+            bool isCollectionPointSelected,
             float cellSize)
         {
             Vector3 localPosition = CanvasToWorld(Event.current.mousePosition, rect, zoom, pan);
@@ -465,6 +534,12 @@ namespace FlowBlast.Editor
             if (isBoxQueueSelected)
             {
                 editState.SetBoxQueuePosition(localPosition);
+                return;
+            }
+
+            if (isCollectionPointSelected)
+            {
+                editState.SetCollectionPointPosition(localPosition);
                 return;
             }
 
@@ -495,6 +570,12 @@ namespace FlowBlast.Editor
         {
             Vector2 canvasPoint = WorldToCanvas(localPosition, rect, zoom, pan);
             return Vector2.Distance(mouse, canvasPoint) <= QueueHitRadius;
+        }
+
+        private static bool HitTestCollectionPoint(Rect rect, Vector3 localPosition, float zoom, Vector2 pan, Vector2 mouse)
+        {
+            Vector2 canvasPoint = WorldToCanvas(localPosition, rect, zoom, pan);
+            return Vector2.Distance(mouse, canvasPoint) <= CollectionPointHitRadius;
         }
 
         private static Vector2 WorldToCanvas(Vector3 localPosition, Rect rect, float zoom, Vector2 pan)

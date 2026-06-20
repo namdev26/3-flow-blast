@@ -13,15 +13,22 @@ MonoBehaviour:
   m_Name: MapLayout 1
   m_EditorClassIdentifier: Assembly-CSharp::FlowBlast.Data.LevelMapLayout
   layoutId: MapLayout 1
-  isClosedLoop: 1
-  waypointLocalPositions:
-  - {x: -3.2, y: 0, z: 2}
-  - {x: -1.6, y: 0, z: 2}
+  isMainPathClosedLoop: 1
+  mainWaypointLocalPositions:
+  - {x: -4, y: 0, z: 4}
+  - {x: -4, y: 0, z: 0}
   - {x: 0, y: 0, z: 4}
-  - {x: 1.6, y: 0, z: 2.4}
-  - {x: 3.2, y: 0, z: 2}
-  - {x: 2.8, y: 0, z: 0}
-  - {x: 0, y: 0, z: -0}
-  - {x: -2.8, y: 0, z: -0}
+  - {x: 4, y: 0, z: 0}
+  - {x: 4, y: 0, z: 4}
+  - {x: -0, y: 0, z: 0}
   boxQueueLocalPosition: {x: -2, y: 0, z: -3}
-  curveStrength: 1
+  collectionPointLocalPosition: {x: 0, y: 0, z: -0}
+  mainCurveStrength: 1
+  queuePaths:
+  - queueId: Queue_01
+    displayName: Queue 01
+    isClosedLoop: 1
+    waypointLocalPositions:
+    - {x: 0, y: 0, z: 4.4}
+    - {x: 0, y: 0, z: 27.6}
+    curveStrength: 1

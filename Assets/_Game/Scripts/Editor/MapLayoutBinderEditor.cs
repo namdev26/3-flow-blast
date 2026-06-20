@@ -101,7 +101,8 @@ namespace FlowBlast.Editor
 
             LevelMapLayout layout = ScriptableObject.CreateInstance<LevelMapLayout>();
             Transform boxQueueParent = binder.transform.Find("BoxQueueParent");
-            MapLayoutApplicator.Capture(layout, binder.BeltPath, binder.QueueBeltPaths, boxQueueParent);
+            Transform collectionPointMarker = binder.transform.Find("CollectionPointMarker");
+            MapLayoutApplicator.Capture(layout, binder.BeltPath, binder.QueueBeltPaths, boxQueueParent, collectionPointMarker);
 
             AssetDatabase.CreateAsset(layout, path);
             AssetDatabase.SaveAssets();
@@ -130,10 +131,16 @@ namespace FlowBlast.Editor
             }
 
             Transform boxQueueParent = binder.transform.Find("BoxQueueParent");
+            Transform collectionPointMarker = binder.transform.Find("CollectionPointMarker");
 
             if (boxQueueParent != null)
             {
                 EditorUtility.SetDirty(boxQueueParent);
+            }
+
+            if (collectionPointMarker != null)
+            {
+                EditorUtility.SetDirty(collectionPointMarker);
             }
 
             if (!Application.isPlaying)

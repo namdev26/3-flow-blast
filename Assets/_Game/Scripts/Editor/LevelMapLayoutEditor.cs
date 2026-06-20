@@ -18,7 +18,8 @@ namespace FlowBlast.Editor
             EditorGUILayout.LabelField("Summary", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Main Waypoints", layout.MainWaypointLocalPositions.Count.ToString());
             EditorGUILayout.LabelField("Queue Paths", layout.QueuePaths.Count.ToString());
-            EditorGUILayout.LabelField("Box Queue Local", layout.BoxQueueLocalPosition.ToString("F2"));
+            EditorGUILayout.LabelField("Queue Entry Local", layout.BoxQueueLocalPosition.ToString("F2"));
+            EditorGUILayout.LabelField("Collection Point Local", layout.CollectionPointLocalPosition.ToString("F2"));
 
             EditorGUILayout.HelpBox(
                 "Edit layout in FlowBlast → Map Editor. Use Scene Sync → Apply To Scene when ready.",

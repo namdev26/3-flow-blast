@@ -262,6 +262,7 @@ namespace FlowBlast.Editor
             BeltPath beltPath,
             IReadOnlyList<BeltPath> queueBeltPaths,
             Transform boxQueueParent,
+            Transform collectionPointMarker,
             LevelMapLayout layout)
         {
             if (layout == null)
@@ -270,7 +271,7 @@ namespace FlowBlast.Editor
             }
 
             Undo.RecordObject(layout, "Capture Map Layout");
-            layout.CaptureFrom(beltPath, queueBeltPaths, boxQueueParent);
+            layout.CaptureFrom(beltPath, queueBeltPaths, boxQueueParent, collectionPointMarker);
             EditorUtility.SetDirty(layout);
         }
 
@@ -278,6 +279,7 @@ namespace FlowBlast.Editor
             BeltPath beltPath,
             IReadOnlyList<BeltPath> queueBeltPaths,
             Transform boxQueueParent,
+            Transform collectionPointMarker,
             LevelMapLayout layout)
         {
             if (layout == null)
@@ -304,12 +306,18 @@ namespace FlowBlast.Editor
             BeltWaypointMarker waypointPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WaypointMarkerPrefabPath)
                 ?.GetComponent<BeltWaypointMarker>();
 
-            layout.ApplyTo(beltPath, queueBeltPaths, boxQueueParent, waypointPrefab);
+            layout.ApplyTo(beltPath, queueBeltPaths, boxQueueParent, waypointPrefab, collectionPointMarker);
 
             if (boxQueueParent != null)
             {
                 Undo.RecordObject(boxQueueParent, "Apply Box Queue Position");
                 EditorUtility.SetDirty(boxQueueParent);
+            }
+
+            if (collectionPointMarker != null)
+            {
+                Undo.RecordObject(collectionPointMarker, "Apply Collection Point Position");
+                EditorUtility.SetDirty(collectionPointMarker);
             }
 
             if (beltPath != null)
