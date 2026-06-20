@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ce92c4407ab6cff4f95e56c304018b49, type: 3}
-  m_Name: MapLayout 1
-  m_EditorClassIdentifier: Assembly-CSharp::FlowBlast.Data.LevelMapLayout
-  layoutId: MapLayout 1
+  m_Name: MapLayout 3
+  m_EditorClassIdentifier: 
+  layoutId: MapLayout 3
   isMainPathClosedLoop: 1
   mainWaypointLocalPositions:
   - {x: -4, y: 0, z: 4}
@@ -29,13 +29,13 @@ MonoBehaviour:
     displayName: Queue 01
     isClosedLoop: 1
     waypointLocalPositions:
-    - {x: -2.4, y: 0, z: 3.6000001}
-    - {x: -2.4, y: 0, z: 6.4}
+    - {x: 0, y: 0, z: 4.4}
+    - {x: 0, y: 0, z: 27.6}
     curveStrength: 1
   - queueId: Queue_02
     displayName: Queue 02
     isClosedLoop: 1
     waypointLocalPositions:
-    - {x: 2.4, y: 0, z: 3.6000001}
-    - {x: 2.4, y: 0, z: 6.4}
+    - {x: 3.6000001, y: 0, z: 6}
+    - {x: 1.6, y: 0, z: 3.2}
     curveStrength: 1

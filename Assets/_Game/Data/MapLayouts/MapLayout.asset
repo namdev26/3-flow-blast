@@ -15,25 +15,25 @@ MonoBehaviour:
   layoutId: MapLayout
   isMainPathClosedLoop: 1
   mainWaypointLocalPositions:
-  - {x: -4, y: 0, z: 0}
+  - {x: -2.8, y: 0, z: -0}
   - {x: -2.8, y: 0, z: 3.2}
-  - {x: 2.4, y: 0, z: 3.2}
-  - {x: 4, y: 0, z: -0}
+  - {x: 2.8, y: 0, z: 3.2}
+  - {x: 2.8, y: 0, z: 0}
   boxQueueLocalPosition: {x: -6, y: 0, z: 6}
-  collectionPointLocalPosition: {x: 0, y: 0, z: 3}
+  collectionPointLocalPosition: {x: 0, y: 0, z: -0.4}
   mainCurveStrength: 0.591
   queuePaths:
   - queueId: Queue_01
     displayName: Queue 01
     isClosedLoop: 1
     waypointLocalPositions:
-    - {x: -3.2, y: 0, z: 3.6000001}
-    - {x: -15.2, y: 0, z: 16}
+    - {x: -1.2, y: 0, z: 3.6000001}
+    - {x: -1.2, y: 0, z: 14.400001}
     curveStrength: 1
   - queueId: Queue_02
     displayName: Queue 02
     isClosedLoop: 1
     waypointLocalPositions:
-    - {x: 2.8, y: 0, z: 3.6000001}
-    - {x: 14, y: 0, z: 16.800001}
+    - {x: 1.2, y: 0, z: 3.6000001}
+    - {x: 1.2, y: 0, z: 14.400001}
     curveStrength: 1

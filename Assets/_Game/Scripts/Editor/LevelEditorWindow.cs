@@ -55,6 +55,7 @@ namespace FlowBlast.Editor
         private bool showBlockPreview = true;
         private bool showPathPainting = true;
         private bool isSaveRequested;
+        private bool shouldAutoFitSequenceCanvas = true;
         private float sequenceCanvasZoom = 42f;
         private Vector2 sequenceCanvasPan = new Vector2(0f, -2f);
         private int selectedSequenceRegionIndex;
@@ -298,6 +299,7 @@ namespace FlowBlast.Editor
             if (EditorGUI.EndChangeCheck())
             {
                 mapLayoutProperty.objectReferenceValue = newLayout;
+                shouldAutoFitSequenceCanvas = true;
                 SceneView.RepaintAll();
             }
         }
@@ -372,8 +374,7 @@ namespace FlowBlast.Editor
 
                 if (GUILayout.Button("Reset View", GUILayout.Width(92f)))
                 {
-                    sequenceCanvasZoom = 42f;
-                    sequenceCanvasPan = new Vector2(0f, -2f);
+                    shouldAutoFitSequenceCanvas = true;
                     GUI.FocusControl(null);
                 }
 
@@ -1490,6 +1491,7 @@ namespace FlowBlast.Editor
                 pathRootTransform);
 
             DrawBlockRowsOnSampler(mainSampler, spawnRows, ref cursor, rowSpacing, laneCount, laneSpacing, 0.9f);
+            List<BeltPath> sceneQueuePaths = ResolveSceneQueuePaths();
 
             for (int i = 0; i < layout.QueuePaths.Count; i++)
             {
@@ -1505,11 +1507,12 @@ namespace FlowBlast.Editor
                     continue;
                 }
 
+                Transform queueTransform = ResolveQueueTransformForLayout(queueLayout, sceneQueuePaths, pathRootTransform);
                 CatmullRomPathSampler queueSampler = BuildSamplerFromLocalWaypoints(
                     queueLayout.WaypointLocalPositions,
                     queueLayout.IsClosedLoop,
                     queueLayout.CurveStrength,
-                    pathRootTransform);
+                    queueTransform);
 
                 DrawBlockRowsOnSampler(queueSampler, spawnRows, ref cursor, rowSpacing, laneCount, laneSpacing, 0.65f);
             }
@@ -1599,6 +1602,7 @@ namespace FlowBlast.Editor
 
         private void DrawSequenceCanvas(Rect rect)
         {
+            AutoFitSequenceCanvasIfNeeded(rect);
             EditorGUI.DrawRect(rect, new Color(0.12f, 0.13f, 0.15f));
 
             if (Event.current.type == EventType.Repaint)
@@ -1702,6 +1706,7 @@ namespace FlowBlast.Editor
 
             if (currentEvent.type == EventType.ScrollWheel)
             {
+                shouldAutoFitSequenceCanvas = false;
                 float zoomDelta = -currentEvent.delta.y * 2f;
                 sequenceCanvasZoom = Mathf.Clamp(sequenceCanvasZoom + zoomDelta, SequenceCanvasMinZoom, SequenceCanvasMaxZoom);
                 currentEvent.Use();
@@ -1711,6 +1716,7 @@ namespace FlowBlast.Editor
 
             if (currentEvent.type == EventType.MouseDrag && currentEvent.button == 2)
             {
+                shouldAutoFitSequenceCanvas = false;
                 sequenceCanvasPan += currentEvent.delta / sequenceCanvasZoom;
                 currentEvent.Use();
                 Repaint();
@@ -1821,6 +1827,7 @@ namespace FlowBlast.Editor
                 ref sequenceCursor,
                 regionStartIndex,
                 regionEndExclusive);
+            List<BeltPath> sceneQueuePaths = ResolveSceneQueuePaths();
 
             for (int pathIndex = 0; pathIndex < layout.QueuePaths.Count; pathIndex++)
             {
@@ -1836,11 +1843,12 @@ namespace FlowBlast.Editor
                     continue;
                 }
 
+                Transform queueTransform = ResolveQueueTransformForLayout(queueLayout, sceneQueuePaths, mainPath.transform);
                 CatmullRomPathSampler queueSampler = BuildSamplerFromLocalWaypoints(
                     queueLayout.WaypointLocalPositions,
                     queueLayout.IsClosedLoop,
                     queueLayout.CurveStrength,
-                    mainPath.transform);
+                    queueTransform);
                 DrawCanvasPathSequence(
                     rect,
                     distance => queueSampler.GetPositionAtDistance(distance),
@@ -2213,6 +2221,165 @@ namespace FlowBlast.Editor
             float x = rect.center.x + (localPosition.x + sequenceCanvasPan.x) * sequenceCanvasZoom;
             float y = rect.center.y - (localPosition.z + sequenceCanvasPan.y) * sequenceCanvasZoom;
             return new Vector2(x, y);
+        }
+
+        private Transform ResolveQueueTransformForLayout(
+            QueuePathLayout queueLayout,
+            IReadOnlyList<BeltPath> sceneQueuePaths,
+            Transform fallbackTransform)
+        {
+            if (queueLayout == null || sceneQueuePaths == null)
+            {
+                return fallbackTransform;
+            }
+
+            string queueId = queueLayout.QueueId;
+
+            for (int i = 0; i < sceneQueuePaths.Count; i++)
+            {
+                BeltPath queuePath = sceneQueuePaths[i];
+
+                if (queuePath == null)
+                {
+                    continue;
+                }
+
+                if (queuePath.PathId == queueId)
+                {
+                    return queuePath.transform;
+                }
+            }
+
+            return fallbackTransform;
+        }
+
+        private void AutoFitSequenceCanvasIfNeeded(Rect rect)
+        {
+            if (!shouldAutoFitSequenceCanvas || rect.width <= Mathf.Epsilon || rect.height <= Mathf.Epsilon)
+            {
+                return;
+            }
+
+            if (!TryGetSequenceCanvasBounds(out Vector3 minBounds, out Vector3 maxBounds))
+            {
+                shouldAutoFitSequenceCanvas = false;
+                return;
+            }
+
+            float contentWidth = Mathf.Max(1f, maxBounds.x - minBounds.x);
+            float contentHeight = Mathf.Max(1f, maxBounds.z - minBounds.z);
+            float horizontalPadding = 48f;
+            float verticalPadding = 48f;
+            float zoomX = (rect.width - horizontalPadding) / contentWidth;
+            float zoomY = (rect.height - verticalPadding) / contentHeight;
+            float fittedZoom = Mathf.Clamp(Mathf.Min(zoomX, zoomY), SequenceCanvasMinZoom, SequenceCanvasMaxZoom);
+            Vector3 contentCenter = (minBounds + maxBounds) * 0.5f;
+
+            sequenceCanvasZoom = fittedZoom;
+            sequenceCanvasPan = new Vector2(-contentCenter.x, -contentCenter.z);
+            shouldAutoFitSequenceCanvas = false;
+        }
+
+        private bool TryGetSequenceCanvasBounds(out Vector3 minBounds, out Vector3 maxBounds)
+        {
+            minBounds = new Vector3(float.MaxValue, 0f, float.MaxValue);
+            maxBounds = new Vector3(float.MinValue, 0f, float.MinValue);
+            bool hasAnyPoint = false;
+            LevelMapLayout layout = mapLayoutProperty?.objectReferenceValue as LevelMapLayout;
+
+            if (layout != null)
+            {
+                hasAnyPoint |= AccumulateBounds(layout.MainWaypointLocalPositions, ref minBounds, ref maxBounds);
+
+                for (int i = 0; i < layout.QueuePaths.Count; i++)
+                {
+                    QueuePathLayout queueLayout = layout.QueuePaths[i];
+
+                    if (queueLayout == null)
+                    {
+                        continue;
+                    }
+
+                    hasAnyPoint |= AccumulateBounds(queueLayout.WaypointLocalPositions, ref minBounds, ref maxBounds);
+                }
+            }
+            else
+            {
+                BeltPath mainPath = ResolveMainBeltPath();
+                List<BeltPath> queuePaths = ResolveSceneQueuePaths();
+
+                if (mainPath != null)
+                {
+                    hasAnyPoint |= AccumulateBounds(mainPath.Waypoints, ref minBounds, ref maxBounds);
+                }
+
+                for (int i = 0; i < queuePaths.Count; i++)
+                {
+                    if (queuePaths[i] == null)
+                    {
+                        continue;
+                    }
+
+                    hasAnyPoint |= AccumulateBounds(queuePaths[i].Waypoints, ref minBounds, ref maxBounds);
+                }
+            }
+
+            return hasAnyPoint;
+        }
+
+        private static bool AccumulateBounds(
+            IReadOnlyList<Vector3> positions,
+            ref Vector3 minBounds,
+            ref Vector3 maxBounds)
+        {
+            if (positions == null || positions.Count == 0)
+            {
+                return false;
+            }
+
+            bool hasAnyPoint = false;
+
+            for (int i = 0; i < positions.Count; i++)
+            {
+                Vector3 point = positions[i];
+                minBounds.x = Mathf.Min(minBounds.x, point.x);
+                minBounds.z = Mathf.Min(minBounds.z, point.z);
+                maxBounds.x = Mathf.Max(maxBounds.x, point.x);
+                maxBounds.z = Mathf.Max(maxBounds.z, point.z);
+                hasAnyPoint = true;
+            }
+
+            return hasAnyPoint;
+        }
+
+        private static bool AccumulateBounds(
+            IReadOnlyList<Transform> waypoints,
+            ref Vector3 minBounds,
+            ref Vector3 maxBounds)
+        {
+            if (waypoints == null || waypoints.Count == 0)
+            {
+                return false;
+            }
+
+            bool hasAnyPoint = false;
+
+            for (int i = 0; i < waypoints.Count; i++)
+            {
+                if (waypoints[i] == null)
+                {
+                    continue;
+                }
+
+                Vector3 point = waypoints[i].position;
+                minBounds.x = Mathf.Min(minBounds.x, point.x);
+                minBounds.z = Mathf.Min(minBounds.z, point.z);
+                maxBounds.x = Mathf.Max(maxBounds.x, point.x);
+                maxBounds.z = Mathf.Max(maxBounds.z, point.z);
+                hasAnyPoint = true;
+            }
+
+            return hasAnyPoint;
         }
 
         private static CatmullRomPathSampler BuildSamplerFromLocalWaypoints(

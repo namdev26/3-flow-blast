@@ -31,8 +31,8 @@ namespace FlowBlast.Editor
         private Transform boxQueueParent;
         private Transform collectionPointMarker;
         private MapEditorSettings settings;
-        private LevelMapLayout layoutAsset;
-        private LevelMapLayout trackedLayoutAsset;
+        [SerializeField] private LevelMapLayout layoutAsset;
+        [SerializeField] private LevelMapLayout trackedLayoutAsset;
 
         private float canvasZoom = 24f;
         private Vector2 canvasPan = Vector2.zero;
@@ -68,6 +68,12 @@ namespace FlowBlast.Editor
             instance = this;
             settings = BeltPathEditorUtility.LoadSettings();
             InitializeTargets(null);
+
+            if (layoutAsset == null)
+            {
+                layoutAsset = trackedLayoutAsset;
+            }
+
             TryLoadLayoutFromBinder();
             ReloadEditStates();
         }
@@ -406,6 +412,7 @@ namespace FlowBlast.Editor
 
             if (EditorGUI.EndChangeCheck())
             {
+                trackedLayoutAsset = layoutAsset;
                 ReloadEditStates();
             }
         }
@@ -689,6 +696,8 @@ namespace FlowBlast.Editor
             {
                 activeQueueIndex = -1;
             }
+
+            trackedLayoutAsset = layoutAsset;
         }
 
         private void AddWaypointAfterSelection()
@@ -722,6 +731,7 @@ namespace FlowBlast.Editor
             }
 
             ActiveEditState.RemoveWaypoint(ActiveEditState.SelectedWaypointIndex);
+            trackedLayoutAsset = layoutAsset;
         }
 
         private void ApplyPreset(Vector3[] localPositions, bool isClosedLoop)
@@ -731,10 +741,11 @@ namespace FlowBlast.Editor
 
         private void ReloadEditStates()
         {
+            RestoreLayoutAssetReference();
+
             if (layoutAsset == null)
             {
                 ImportAllFromScene();
-                trackedLayoutAsset = null;
                 isBoxQueueSelected = false;
                 isCollectionPointSelected = false;
                 Repaint();
@@ -796,6 +807,7 @@ namespace FlowBlast.Editor
             }
 
             layoutAsset.RemoveMissingQueuePaths(validQueueIds);
+            trackedLayoutAsset = layoutAsset;
             EditorUtility.SetDirty(layoutAsset);
             AssetDatabase.SaveAssets();
             SyncMapLayoutBinder(layoutAsset);
@@ -969,30 +981,7 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            MapLayoutBinder binder = null;
-
-            if (beltPath != null)
-            {
-                binder = beltPath.GetComponentInParent<MapLayoutBinder>();
-            }
-
-            if (binder == null)
-            {
-                for (int i = 0; i < queueBeltPaths.Count; i++)
-                {
-                    if (queueBeltPaths[i] == null)
-                    {
-                        continue;
-                    }
-
-                    binder = queueBeltPaths[i].GetComponentInParent<MapLayoutBinder>();
-
-                    if (binder != null)
-                    {
-                        break;
-                    }
-                }
-            }
+            MapLayoutBinder binder = ResolveMapLayoutBinder();
 
             if (binder == null)
             {
@@ -1001,6 +990,11 @@ namespace FlowBlast.Editor
 
             SerializedObject serializedBinder = new SerializedObject(binder);
             layoutAsset = serializedBinder.FindProperty("mapLayout").objectReferenceValue as LevelMapLayout;
+
+            if (layoutAsset != null)
+            {
+                trackedLayoutAsset = layoutAsset;
+            }
         }
 
         private void SyncMapLayoutBinder(LevelMapLayout layout)
@@ -1010,30 +1004,7 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            MapLayoutBinder binder = null;
-
-            if (beltPath != null)
-            {
-                binder = beltPath.GetComponentInParent<MapLayoutBinder>();
-            }
-
-            if (binder == null)
-            {
-                for (int i = 0; i < queueBeltPaths.Count; i++)
-                {
-                    if (queueBeltPaths[i] == null)
-                    {
-                        continue;
-                    }
-
-                    binder = queueBeltPaths[i].GetComponentInParent<MapLayoutBinder>();
-
-                    if (binder != null)
-                    {
-                        break;
-                    }
-                }
-            }
+            MapLayoutBinder binder = ResolveMapLayoutBinder();
 
             if (binder == null)
             {
@@ -1054,6 +1025,53 @@ namespace FlowBlast.Editor
             }
 
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(activePath.gameObject.scene);
+        }
+
+        private void RestoreLayoutAssetReference()
+        {
+            if (layoutAsset != null)
+            {
+                trackedLayoutAsset = layoutAsset;
+                return;
+            }
+
+            if (trackedLayoutAsset != null)
+            {
+                layoutAsset = trackedLayoutAsset;
+                return;
+            }
+
+            TryLoadLayoutFromBinder();
+        }
+
+        private MapLayoutBinder ResolveMapLayoutBinder()
+        {
+            if (beltPath != null)
+            {
+                MapLayoutBinder binder = beltPath.GetComponentInParent<MapLayoutBinder>();
+
+                if (binder != null)
+                {
+                    return binder;
+                }
+            }
+
+            for (int i = 0; i < queueBeltPaths.Count; i++)
+            {
+                if (queueBeltPaths[i] == null)
+                {
+                    continue;
+                }
+
+                MapLayoutBinder binder = queueBeltPaths[i].GetComponentInParent<MapLayoutBinder>();
+
+                if (binder != null)
+                {
+                    return binder;
+                }
+            }
+
+            return FindFirstObjectByType<MapLayoutBinder>();
         }
 
         private static BeltWaypointMarker LoadWaypointPrefab()

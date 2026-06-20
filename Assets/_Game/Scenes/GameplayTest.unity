@@ -812,7 +812,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e17090b35c7e3994da41b0d2df65e408, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mapLayout: {fileID: 11400000, guid: 24fd595da17991541a8272051bc27935, type: 2}
+  mapLayout: {fileID: 11400000, guid: bbd8ac1a81abb8048b175ad2af2dceaa, type: 2}
   beltPath: {fileID: 316115237}
   queueBeltPaths:
   - {fileID: 1518445330}
@@ -822,7 +822,7 @@ MonoBehaviour:
   waypointPrefab: {fileID: 4697243232630044868, guid: d2ccf9c1f7dc1d648a67f30028ffe2af, type: 3}
   applyOnAwake: 1
   applyInEditMode: 1
-  lastAppliedLayout: {fileID: 11400000, guid: 24fd595da17991541a8272051bc27935, type: 2}
+  lastAppliedLayout: {fileID: 11400000, guid: bbd8ac1a81abb8048b175ad2af2dceaa, type: 2}
 --- !u!1 &1140294749
 GameObject:
   m_ObjectHideFlags: 0
