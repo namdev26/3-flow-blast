@@ -7,6 +7,7 @@ using FlowBlast.Core.Utilities;
 using FlowBlast.Data;
 using FlowBlast.Presentation.Block;
 using FlowBlast.Services.Belt;
+using FlowBlast.Services.Block;
 using UnityEditor;
 using UnityEngine;
 
@@ -60,6 +61,23 @@ namespace FlowBlast.Editor
         private Vector2 sequenceCanvasPan = new Vector2(0f, -2f);
         private int selectedSequenceRegionIndex;
         private List<BoxVisualProfile> cachedVisualProfiles;
+
+        private readonly struct CanvasQueuePathPreview
+        {
+            public System.Func<float, Vector3> GetPositionAtDistance { get; }
+            public System.Func<float, Quaternion> GetRotationAtDistance { get; }
+            public float PathLength { get; }
+
+            public CanvasQueuePathPreview(
+                System.Func<float, Vector3> getPositionAtDistance,
+                System.Func<float, Quaternion> getRotationAtDistance,
+                float pathLength)
+            {
+                GetPositionAtDistance = getPositionAtDistance;
+                GetRotationAtDistance = getRotationAtDistance;
+                PathLength = pathLength;
+            }
+        }
 
         public static bool IsOpen => instance != null;
 
@@ -1763,34 +1781,15 @@ namespace FlowBlast.Editor
                 regionEndExclusive);
 
             List<BeltPath> queuePaths = ResolveSceneQueuePaths();
-
-            for (int pathIndex = 0; pathIndex < queuePaths.Count; pathIndex++)
-            {
-                if (sequenceCursor >= levelData.BlockSequenceItems.Count)
-                {
-                    break;
-                }
-
-                BeltPath queuePath = queuePaths[pathIndex];
-
-                if (queuePath == null || queuePath.TotalLength <= Mathf.Epsilon)
-                {
-                    continue;
-                }
-
-                DrawCanvasPathSequence(
-                    rect,
-                    distance => queuePath.GetPositionAtDistance(distance),
-                    distance => queuePath.GetRotationAtDistance(distance),
-                    queuePath.TotalLength,
-                    laneCount,
-                    rowSpacing,
-                    laneSpacing,
-                    0.65f,
-                    ref sequenceCursor,
-                    regionStartIndex,
-                    regionEndExclusive);
-            }
+            DrawBalancedQueueCanvasPaths(
+                rect,
+                queuePaths,
+                laneCount,
+                rowSpacing,
+                laneSpacing,
+                ref sequenceCursor,
+                regionStartIndex,
+                regionEndExclusive);
         }
 
         private bool TryDrawCanvasFromMapLayout(
@@ -1828,14 +1827,10 @@ namespace FlowBlast.Editor
                 regionStartIndex,
                 regionEndExclusive);
             List<BeltPath> sceneQueuePaths = ResolveSceneQueuePaths();
+            List<CanvasQueuePathPreview> queuePreviews = new List<CanvasQueuePathPreview>();
 
             for (int pathIndex = 0; pathIndex < layout.QueuePaths.Count; pathIndex++)
             {
-                if (sequenceCursor >= levelData.BlockSequenceItems.Count)
-                {
-                    break;
-                }
-
                 QueuePathLayout queueLayout = layout.QueuePaths[pathIndex];
 
                 if (queueLayout == null || queueLayout.WaypointLocalPositions.Count < 2)
@@ -1849,19 +1844,27 @@ namespace FlowBlast.Editor
                     queueLayout.IsClosedLoop,
                     queueLayout.CurveStrength,
                     queueTransform);
-                DrawCanvasPathSequence(
-                    rect,
+
+                if (queueSampler == null || queueSampler.TotalLength <= Mathf.Epsilon)
+                {
+                    continue;
+                }
+
+                queuePreviews.Add(new CanvasQueuePathPreview(
                     distance => queueSampler.GetPositionAtDistance(distance),
                     distance => queueSampler.GetRotationAtDistance(distance),
-                    queueSampler.TotalLength,
-                    laneCount,
-                    rowSpacing,
-                    laneSpacing,
-                    0.65f,
-                    ref sequenceCursor,
-                    regionStartIndex,
-                    regionEndExclusive);
+                    queueSampler.TotalLength));
             }
+
+            DrawBalancedQueueCanvasPreviews(
+                rect,
+                queuePreviews,
+                laneCount,
+                rowSpacing,
+                laneSpacing,
+                ref sequenceCursor,
+                regionStartIndex,
+                regionEndExclusive);
 
             return true;
         }
@@ -1879,14 +1882,50 @@ namespace FlowBlast.Editor
             int regionStartIndex,
             int regionEndExclusive)
         {
+            int rowCapacity = Mathf.FloorToInt(pathLength / rowSpacing);
+            int remainingRows = Mathf.CeilToInt((levelData.BlockSequenceItems.Count - sequenceCursor) / (float)laneCount);
+            int availableRows = Mathf.Min(rowCapacity, remainingRows);
+            DrawCanvasPathSequenceWithRowCount(
+                rect,
+                getPositionAtDistance,
+                getRotationAtDistance,
+                pathLength,
+                laneCount,
+                rowSpacing,
+                laneSpacing,
+                alpha,
+                ref sequenceCursor,
+                regionStartIndex,
+                regionEndExclusive,
+                availableRows);
+        }
+
+        private void DrawCanvasPathSequenceWithRowCount(
+            Rect rect,
+            System.Func<float, Vector3> getPositionAtDistance,
+            System.Func<float, Quaternion> getRotationAtDistance,
+            float pathLength,
+            int laneCount,
+            float rowSpacing,
+            float laneSpacing,
+            float alpha,
+            ref int sequenceCursor,
+            int regionStartIndex,
+            int regionEndExclusive,
+            int availableRows)
+        {
             if (pathLength <= Mathf.Epsilon)
             {
                 return;
             }
 
             DrawCanvasPathLine(rect, getPositionAtDistance, pathLength, alpha);
-            int rowCapacity = Mathf.FloorToInt(pathLength / rowSpacing);
-            int availableRows = Mathf.Min(rowCapacity, Mathf.CeilToInt((levelData.BlockSequenceItems.Count - sequenceCursor) / (float)laneCount));
+
+            if (availableRows <= 0)
+            {
+                return;
+            }
+
             int pathStartBlockIndex = sequenceCursor;
             int pathEndBlockExclusive = sequenceCursor + availableRows * laneCount;
 
@@ -1905,6 +1944,146 @@ namespace FlowBlast.Editor
                 regionEndExclusive);
 
             sequenceCursor += availableRows * laneCount;
+        }
+
+        private void DrawBalancedQueueCanvasPaths(
+            Rect rect,
+            IReadOnlyList<BeltPath> queuePaths,
+            int laneCount,
+            float rowSpacing,
+            float laneSpacing,
+            ref int sequenceCursor,
+            int regionStartIndex,
+            int regionEndExclusive)
+        {
+            if (queuePaths == null || queuePaths.Count == 0)
+            {
+                return;
+            }
+
+            List<int> rowCapacities = new List<int>(queuePaths.Count);
+
+            for (int pathIndex = 0; pathIndex < queuePaths.Count; pathIndex++)
+            {
+                BeltPath queuePath = queuePaths[pathIndex];
+                int rowCapacity = queuePath != null && queuePath.TotalLength > Mathf.Epsilon
+                    ? Mathf.FloorToInt(queuePath.TotalLength / rowSpacing)
+                    : 0;
+                rowCapacities.Add(rowCapacity);
+            }
+
+            DrawBalancedQueueCanvasPathsInternal(
+                rect,
+                queuePaths,
+                rowCapacities,
+                laneCount,
+                rowSpacing,
+                laneSpacing,
+                ref sequenceCursor,
+                regionStartIndex,
+                regionEndExclusive);
+        }
+
+        private void DrawBalancedQueueCanvasPreviews(
+            Rect rect,
+            IReadOnlyList<CanvasQueuePathPreview> queuePreviews,
+            int laneCount,
+            float rowSpacing,
+            float laneSpacing,
+            ref int sequenceCursor,
+            int regionStartIndex,
+            int regionEndExclusive)
+        {
+            if (queuePreviews == null || queuePreviews.Count == 0)
+            {
+                return;
+            }
+
+            List<int> rowCapacities = new List<int>(queuePreviews.Count);
+
+            for (int pathIndex = 0; pathIndex < queuePreviews.Count; pathIndex++)
+            {
+                CanvasQueuePathPreview preview = queuePreviews[pathIndex];
+                int rowCapacity = preview.PathLength > Mathf.Epsilon
+                    ? Mathf.FloorToInt(preview.PathLength / rowSpacing)
+                    : 0;
+                rowCapacities.Add(rowCapacity);
+            }
+
+            List<int> rowAllocations = BuildBalancedQueueRowAllocations(rowCapacities, sequenceCursor, laneCount);
+
+            for (int pathIndex = 0; pathIndex < queuePreviews.Count; pathIndex++)
+            {
+                CanvasQueuePathPreview preview = queuePreviews[pathIndex];
+                int availableRows = pathIndex < rowAllocations.Count ? rowAllocations[pathIndex] : 0;
+
+                if (preview.PathLength <= Mathf.Epsilon)
+                {
+                    continue;
+                }
+
+                DrawCanvasPathSequenceWithRowCount(
+                    rect,
+                    preview.GetPositionAtDistance,
+                    preview.GetRotationAtDistance,
+                    preview.PathLength,
+                    laneCount,
+                    rowSpacing,
+                    laneSpacing,
+                    0.65f,
+                    ref sequenceCursor,
+                    regionStartIndex,
+                    regionEndExclusive,
+                    availableRows);
+            }
+        }
+
+        private void DrawBalancedQueueCanvasPathsInternal(
+            Rect rect,
+            IReadOnlyList<BeltPath> queuePaths,
+            IReadOnlyList<int> rowCapacities,
+            int laneCount,
+            float rowSpacing,
+            float laneSpacing,
+            ref int sequenceCursor,
+            int regionStartIndex,
+            int regionEndExclusive)
+        {
+            List<int> rowAllocations = BuildBalancedQueueRowAllocations(rowCapacities, sequenceCursor, laneCount);
+
+            for (int pathIndex = 0; pathIndex < queuePaths.Count; pathIndex++)
+            {
+                BeltPath queuePath = queuePaths[pathIndex];
+                int availableRows = pathIndex < rowAllocations.Count ? rowAllocations[pathIndex] : 0;
+
+                if (queuePath == null || queuePath.TotalLength <= Mathf.Epsilon)
+                {
+                    continue;
+                }
+
+                DrawCanvasPathSequenceWithRowCount(
+                    rect,
+                    distance => queuePath.GetPositionAtDistance(distance),
+                    distance => queuePath.GetRotationAtDistance(distance),
+                    queuePath.TotalLength,
+                    laneCount,
+                    rowSpacing,
+                    laneSpacing,
+                    0.65f,
+                    ref sequenceCursor,
+                    regionStartIndex,
+                    regionEndExclusive,
+                    availableRows);
+            }
+        }
+
+        private List<int> BuildBalancedQueueRowAllocations(IReadOnlyList<int> rowCapacities, int sequenceCursor, int laneCount)
+        {
+            int remainingRows = Mathf.CeilToInt((levelData.BlockSequenceItems.Count - sequenceCursor) / (float)laneCount);
+            List<int> rowAllocations = new List<int>(rowCapacities != null ? rowCapacities.Count : 0);
+            int rowsPerChunk = Mathf.Max(1, Mathf.CeilToInt(SequenceRegionBlockCount / (float)Mathf.Max(1, laneCount)));
+            QueuePathRowDistributionUtility.BuildBalancedRowAllocations(rowCapacities, remainingRows, rowsPerChunk, rowAllocations);
+            return rowAllocations;
         }
 
         private void DrawCanvasPathLine(

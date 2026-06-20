@@ -10,12 +10,14 @@ namespace FlowBlast.Data
         [SerializeField] private string displayName = "Queue 01";
         [SerializeField] private bool isClosedLoop;
         [SerializeField] private List<Vector3> waypointLocalPositions = new List<Vector3>();
+        [SerializeField] private Vector3 queueEntryLocalPosition = new Vector3(-2f, 0f, -3f);
         [SerializeField] private float curveStrength = 1f;
 
         public string QueueId => queueId;
         public string DisplayName => displayName;
         public bool IsClosedLoop => isClosedLoop;
         public IReadOnlyList<Vector3> WaypointLocalPositions => waypointLocalPositions;
+        public Vector3 QueueEntryLocalPosition => queueEntryLocalPosition;
         public float CurveStrength => curveStrength;
 
         public void SetIdentity(string id, string name)
@@ -42,6 +44,11 @@ namespace FlowBlast.Data
             bool canUseClosedLoop = waypointLocalPositions.Count >= 3;
             isClosedLoop = canUseClosedLoop && closedLoop;
             curveStrength = Mathf.Clamp01(strength);
+        }
+
+        public void SetQueueEntryLocalPosition(Vector3 localPosition)
+        {
+            queueEntryLocalPosition = localPosition;
         }
     }
 }

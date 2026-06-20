@@ -45,6 +45,16 @@ namespace FlowBlast.Data
             queuePath.SetPathData(localPositions, closedLoop, curveStrength);
         }
 
+        public void SetQueueEntryLocalPosition(string queueId, Vector3 localPosition)
+        {
+            if (!TryGetQueuePath(queueId, out QueuePathLayout queuePath))
+            {
+                return;
+            }
+
+            queuePath.SetQueueEntryLocalPosition(localPosition);
+        }
+
         public bool TryGetQueuePath(string queueId, out QueuePathLayout queuePath)
         {
             for (int i = 0; i < queuePaths.Count; i++)
@@ -57,6 +67,18 @@ namespace FlowBlast.Data
             }
 
             queuePath = null;
+            return false;
+        }
+
+        public bool TryGetQueueEntryLocalPosition(string queueId, out Vector3 localPosition)
+        {
+            if (TryGetQueuePath(queueId, out QueuePathLayout queuePath))
+            {
+                localPosition = queuePath.QueueEntryLocalPosition;
+                return true;
+            }
+
+            localPosition = Vector3.zero;
             return false;
         }
 

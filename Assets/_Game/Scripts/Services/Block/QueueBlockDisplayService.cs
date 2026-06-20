@@ -48,20 +48,27 @@ namespace FlowBlast.Services.Block
                 return;
             }
 
+            int remainingRows = Mathf.Max(0, spawnRows.Count - fromIndex);
+            List<int> rowCapacities = BuildRowCapacities();
+            List<int> rowAllocations = new List<int>(rowCapacities.Count);
+            int rowsPerChunk = Mathf.Max(1, Mathf.CeilToInt(80f / Mathf.Max(1, laneCount)));
+            QueuePathRowDistributionUtility.BuildBalancedRowAllocations(
+                rowCapacities,
+                remainingRows,
+                rowsPerChunk,
+                rowAllocations);
+
             int sequenceCursor = fromIndex;
 
             for (int pathIndex = 0; pathIndex < queuePaths.Count; pathIndex++)
             {
                 IBeltPath path = queuePaths[pathIndex];
+                int rowsToDisplay = pathIndex < rowAllocations.Count ? rowAllocations[pathIndex] : 0;
 
-                if (path == null)
+                if (path == null || rowsToDisplay <= 0)
                 {
                     continue;
                 }
-
-                int rowCapacity = GetRowCapacityForPath(path);
-                int remaining = spawnRows.Count - sequenceCursor;
-                int rowsToDisplay = Mathf.Min(rowCapacity, remaining);
 
                 for (int rowIndex = 0; rowIndex < rowsToDisplay; rowIndex++)
                 {
@@ -76,6 +83,18 @@ namespace FlowBlast.Services.Block
                     break;
                 }
             }
+        }
+
+        private List<int> BuildRowCapacities()
+        {
+            List<int> capacities = new List<int>(queuePaths.Count);
+
+            for (int pathIndex = 0; pathIndex < queuePaths.Count; pathIndex++)
+            {
+                capacities.Add(GetRowCapacityForPath(queuePaths[pathIndex]));
+            }
+
+            return capacities;
         }
 
         public void Clear()

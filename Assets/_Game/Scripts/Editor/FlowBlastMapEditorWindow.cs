@@ -531,7 +531,7 @@ namespace FlowBlast.Editor
                 ActiveEditState.CurveStrength = curveStrength;
             }
 
-            if (isBoxQueueSelected && !ActiveEditState.HasQueuePathIdentity())
+            if (isBoxQueueSelected)
             {
                 EditorGUI.BeginChangeCheck();
                 Vector3 queuePosition = EditorGUILayout.Vector3Field("Queue Entry", ActiveEditState.BoxQueueLocalPosition);
@@ -932,11 +932,6 @@ namespace FlowBlast.Editor
             }
 
             mainEditState.SetBoxQueuePosition(queuePosition);
-
-            for (int i = 0; i < queueEditStates.Count; i++)
-            {
-                queueEditStates[i].SetBoxQueuePosition(queuePosition);
-            }
         }
 
         private void SetSharedCollectionPointPosition(Vector3 collectionPointPosition)

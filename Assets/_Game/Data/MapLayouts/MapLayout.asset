@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ce92c4407ab6cff4f95e56c304018b49, type: 3}
   m_Name: MapLayout
-  m_EditorClassIdentifier: Assembly-CSharp::FlowBlast.Data.LevelMapLayout
+  m_EditorClassIdentifier: 
   layoutId: MapLayout
   isMainPathClosedLoop: 1
   mainWaypointLocalPositions:
@@ -19,21 +19,25 @@ MonoBehaviour:
   - {x: -2.8, y: 0, z: 3.2}
   - {x: 2.8, y: 0, z: 3.2}
   - {x: 2.8, y: 0, z: 0}
-  boxQueueLocalPosition: {x: -6, y: 0, z: 6}
-  collectionPointLocalPosition: {x: 0, y: 0, z: -0.4}
+  boxQueueLocalPosition: {x: 0, y: 0, z: 0}
+  collectionPointLocalPosition: {x: 0, y: 0, z: 0}
   mainCurveStrength: 0.591
   queuePaths:
   - queueId: Queue_01
     displayName: Queue 01
     isClosedLoop: 0
     waypointLocalPositions:
-    - {x: -1.2, y: 0, z: 3.6000001}
-    - {x: -1.2, y: 0, z: 14.400001}
-    curveStrength: 1
+    - {x: -1.2, y: 0, z: 4}
+    - {x: -1.2, y: 0, z: 6}
+    - {x: -22.4, y: 0, z: 6}
+    queueEntryLocalPosition: {x: -1.2, y: 0, z: 3.6000001}
+    curveStrength: 0
   - queueId: Queue_02
     displayName: Queue 02
     isClosedLoop: 0
     waypointLocalPositions:
-    - {x: 1.2, y: 0, z: 3.6000001}
-    - {x: 1.2, y: 0, z: 14.400001}
-    curveStrength: 1
+    - {x: 1.2, y: 0, z: 4}
+    - {x: 1.2, y: 0, z: 6}
+    - {x: 18, y: 0, z: 6}
+    queueEntryLocalPosition: {x: 1.2, y: 0, z: 3.6000001}
+    curveStrength: 0

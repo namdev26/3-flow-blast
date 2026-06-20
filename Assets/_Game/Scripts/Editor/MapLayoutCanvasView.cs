@@ -117,16 +117,16 @@ namespace FlowBlast.Editor
                         ? BeltPathRole.Main
                         : BeltPathRole.Queue;
                     DrawPathSet(rect, editState, settings, pathRole, false, zoom, pan);
+
+                    if (editState.HasQueuePathIdentity())
+                    {
+                        DrawBoxQueue(rect, editState.BoxQueueLocalPosition, editState.DisplayName, settings, zoom, pan, false);
+                    }
                 }
             }
 
             DrawPathSet(rect, activeEditState, settings, activePathRole, true, zoom, pan);
-
-            if (!activeEditState.HasQueuePathIdentity())
-            {
-                DrawBoxQueue(rect, activeEditState.BoxQueueLocalPosition, settings, zoom, pan, isBoxQueueSelected);
-            }
-
+            DrawBoxQueue(rect, activeEditState.BoxQueueLocalPosition, activeEditState.DisplayName, settings, zoom, pan, isBoxQueueSelected);
             DrawCollectionPoint(rect, activeEditState.CollectionPointLocalPosition, zoom, pan, isCollectionPointSelected);
             Handles.EndGUI();
         }
@@ -322,6 +322,7 @@ namespace FlowBlast.Editor
         private static void DrawBoxQueue(
             Rect rect,
             Vector3 localPosition,
+            string displayName,
             MapEditorSettings settings,
             float zoom,
             Vector2 pan,
@@ -329,12 +330,24 @@ namespace FlowBlast.Editor
         {
             Vector2 canvasPoint = WorldToCanvas(localPosition, rect, zoom, pan);
             float radius = isSelected ? 11f : 9f;
+            string queueLabel = BuildQueueEntryLabel(displayName);
 
             Handles.color = isSelected
                 ? Color.white
                 : new Color(settings.BoxQueueColor.r, settings.BoxQueueColor.g, settings.BoxQueueColor.b, 0.95f);
             Handles.DrawSolidDisc(canvasPoint, Vector3.forward, radius);
-            Handles.Label(canvasPoint + new Vector2(12f, -8f), "Queue In");
+            Handles.Label(canvasPoint + new Vector2(12f, -8f), queueLabel);
+        }
+
+        private static string BuildQueueEntryLabel(string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+            {
+                return "Queue In";
+            }
+
+            string compactName = displayName.Replace("Queue", "Q").Replace(" ", string.Empty);
+            return $"{compactName} In";
         }
 
         private static void DrawCollectionPoint(
@@ -361,7 +374,7 @@ namespace FlowBlast.Editor
 
             GUI.Label(
                 new Rect(rect.x + 8f, rect.yMax - 36f, rect.width - 16f, 32f),
-                "All queue paths are visible  |  Drag waypoints directly  |  Click empty: add WP  |  Collect is a per-level marker  |  Scroll: zoom  |  Alt+Drag: pan",
+                "All queue paths are visible  |  Drag waypoints directly  |  Queue In + Collect are editable markers  |  Click empty: add WP  |  Scroll: zoom  |  Alt+Drag: pan",
                 style);
         }
 
@@ -488,8 +501,7 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            if (!editState.HasQueuePathIdentity()
-                && HitTestBoxQueue(rect, editState.BoxQueueLocalPosition, zoom, pan, mouse))
+            if (HitTestBoxQueue(rect, editState.BoxQueueLocalPosition, zoom, pan, mouse))
             {
                 editState.SelectedWaypointIndex = -1;
                 isBoxQueueSelected = true;
