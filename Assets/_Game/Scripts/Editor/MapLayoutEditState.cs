@@ -12,9 +12,33 @@ namespace FlowBlast.Editor
         private readonly List<Vector3> waypointLocalPositions = new List<Vector3>();
         private readonly CatmullRomPathSampler pathSampler = new CatmullRomPathSampler();
 
+        private Vector3 boxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
+
         public IReadOnlyList<Vector3> WaypointLocalPositions => waypointLocalPositions;
         public bool IsClosedLoop { get; set; } = true;
-        public Vector3 BoxQueueLocalPosition { get; set; } = new Vector3(-2f, 0f, -3f);
+        public Vector3 BoxQueueLocalPosition
+        {
+            get
+            {
+                if (HasQueuePathIdentity() && waypointLocalPositions.Count > 0)
+                {
+                    return waypointLocalPositions[0];
+                }
+
+                return boxQueueLocalPosition;
+            }
+            set
+            {
+                if (HasQueuePathIdentity() && waypointLocalPositions.Count > 0)
+                {
+                    waypointLocalPositions[0] = value;
+                    RebuildSampler();
+                    return;
+                }
+
+                boxQueueLocalPosition = value;
+            }
+        }
         public Vector3 CollectionPointLocalPosition { get; set; } = new Vector3(0f, 0f, 3f);
         public float CurveStrength { get; set; } = 1f;
         public int SelectedWaypointIndex { get; set; } = -1;
@@ -34,7 +58,7 @@ namespace FlowBlast.Editor
         {
             waypointLocalPositions.Clear();
             IsClosedLoop = true;
-            BoxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
+            boxQueueLocalPosition = new Vector3(-2f, 0f, -3f);
             CollectionPointLocalPosition = new Vector3(0f, 0f, 3f);
             CurveStrength = 1f;
             SelectedWaypointIndex = -1;
@@ -60,7 +84,7 @@ namespace FlowBlast.Editor
 
             IsClosedLoop = layout.IsMainPathClosedLoop;
             CurveStrength = layout.MainCurveStrength;
-            BoxQueueLocalPosition = layout.BoxQueueLocalPosition;
+            boxQueueLocalPosition = layout.BoxQueueLocalPosition;
             CollectionPointLocalPosition = layout.CollectionPointLocalPosition;
 
             for (int i = 0; i < layout.MainWaypointLocalPositions.Count; i++)
@@ -81,7 +105,7 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            BoxQueueLocalPosition = layout.BoxQueueLocalPosition;
+            boxQueueLocalPosition = layout.BoxQueueLocalPosition;
             CollectionPointLocalPosition = layout.CollectionPointLocalPosition;
 
             if (!layout.TryGetQueuePath(queueId, out QueuePathLayout queueLayout))
@@ -95,6 +119,11 @@ namespace FlowBlast.Editor
             for (int i = 0; i < queueLayout.WaypointLocalPositions.Count; i++)
             {
                 waypointLocalPositions.Add(queueLayout.WaypointLocalPositions[i]);
+            }
+
+            if (waypointLocalPositions.Count < 3)
+            {
+                IsClosedLoop = false;
             }
 
             RebuildSampler();
@@ -137,7 +166,7 @@ namespace FlowBlast.Editor
             beltPath.CaptureLocalWaypointPositions(waypointLocalPositions);
             IsClosedLoop = beltPath.IsClosedLoop;
             CurveStrength = beltPath.CurveStrength;
-            BoxQueueLocalPosition = boxQueueParent != null
+            boxQueueLocalPosition = boxQueueParent != null
                 ? boxQueueParent.localPosition
                 : Vector3.zero;
             CollectionPointLocalPosition = collectionPointMarker != null
@@ -204,6 +233,11 @@ namespace FlowBlast.Editor
         public void SetBoxQueuePosition(Vector3 localPosition)
         {
             BoxQueueLocalPosition = localPosition;
+        }
+
+        public bool HasQueuePathIdentity()
+        {
+            return !string.IsNullOrWhiteSpace(QueueId);
         }
 
         public void SetCollectionPointPosition(Vector3 localPosition)

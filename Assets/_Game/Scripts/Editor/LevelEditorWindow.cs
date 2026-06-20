@@ -1971,9 +1971,17 @@ namespace FlowBlast.Editor
                 }
 
                 int startRowInPath = (visibleBlockStart - pathStartBlockIndex) / laneCount;
-                int endRowInPath = Mathf.Max(startRowInPath, Mathf.CeilToInt((visibleBlockEnd - pathStartBlockIndex) / (float)laneCount) - 1);
+                int endRowExclusiveInPath = Mathf.Max(startRowInPath + 1, Mathf.CeilToInt((visibleBlockEnd - pathStartBlockIndex) / (float)laneCount));
                 float startDistance = startRowInPath * rowSpacing;
-                float endDistance = Mathf.Min(availableRows * rowSpacing, endRowInPath * rowSpacing);
+                float endDistance = Mathf.Min(availableRows * rowSpacing, endRowExclusiveInPath * rowSpacing);
+                float boundaryInset = Mathf.Min(rowSpacing * 0.12f, 0.12f);
+
+                if (endDistance - startDistance > boundaryInset * 2f)
+                {
+                    startDistance += boundaryInset;
+                    endDistance -= boundaryInset;
+                }
+
                 BoxVisualProfile regionProfile = GetSequenceRegionProfile(regionIndex);
                 Color regionColor = regionProfile != null ? regionProfile.TintColor : new Color(0.3f, 0.3f, 0.3f, 0.9f);
                 regionColor.a = alpha;

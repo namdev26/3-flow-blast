@@ -1,19 +1,23 @@
 using FlowBlast.Core.Events;
 using FlowBlast.Domain;
 using FlowBlast.Services.Belt;
+using FlowBlast.Services.Box;
 
 namespace FlowBlast.Patterns.Command
 {
     public sealed class SendBoardBoxToConveyorCommand
     {
         private readonly BoxConveyorSlotService boxConveyorSlotService;
+        private readonly BoxRegistryService boxRegistryService;
         private readonly IGameEventBus eventBus;
 
         public SendBoardBoxToConveyorCommand(
             BoxConveyorSlotService boxConveyorSlotService,
+            BoxRegistryService boxRegistryService,
             IGameEventBus eventBus)
         {
             this.boxConveyorSlotService = boxConveyorSlotService;
+            this.boxRegistryService = boxRegistryService;
             this.eventBus = eventBus;
         }
 
@@ -25,6 +29,11 @@ namespace FlowBlast.Patterns.Command
             }
 
             if (!boxConveyorSlotService.HasAvailableSlot())
+            {
+                return false;
+            }
+
+            if (!boxRegistryService.CanSelect(box))
             {
                 return false;
             }
@@ -44,6 +53,7 @@ namespace FlowBlast.Patterns.Command
                 return false;
             }
 
+            boxRegistryService.MarkSentToConveyor(box);
             box.MarkOnBelt();
             box.MarkOnBoxConveyor();
             box.RevealColor();

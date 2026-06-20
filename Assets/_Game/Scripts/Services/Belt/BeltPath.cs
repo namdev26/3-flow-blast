@@ -29,7 +29,8 @@ namespace FlowBlast.Services.Belt
             BeltWaypointMarker waypointPrefab)
         {
             ClearWaypoints();
-            isClosedLoop = closedLoop;
+            int waypointCount = localPositions != null ? localPositions.Count : 0;
+            isClosedLoop = closedLoop && waypointCount >= 3;
             this.curveStrength = Mathf.Clamp01(curveStrength);
 
             if (localPositions == null || localPositions.Count == 0)

@@ -343,7 +343,9 @@ namespace FlowBlast.Bootstrap
             BeltSlotService beltSlotService = new BeltSlotService(maxSlots);
             BoxConveyorSlotService boxConveyorSlotService = new BoxConveyorSlotService(
                 GameConstants.DefaultMaxBoxConveyorSlots);
-            BoxRegistryService boxRegistryService = new BoxRegistryService();
+            BoardBoxAccessibilityService boardBoxAccessibilityService = new BoardBoxAccessibilityService(
+                levelData != null ? levelData.EditorGridCellSpacing : BoardBoxLayout.DefaultTestBoxCellSpacing);
+            BoxRegistryService boxRegistryService = new BoxRegistryService(boardBoxAccessibilityService);
             bool hasCollectionPointOverride = TryResolveCollectionPointWorldPosition(out Vector3 collectionPointWorldPosition);
             BeltMovementService beltMovementService = new BeltMovementService(
                 beltPath,
@@ -398,6 +400,7 @@ namespace FlowBlast.Bootstrap
 
             SendBoardBoxToConveyorCommand sendBoardBoxCommand = new SendBoardBoxToConveyorCommand(
                 boxConveyorSlotService,
+                boxRegistryService,
                 eventBus);
 
             LevelController levelController = new LevelController(
@@ -580,7 +583,10 @@ namespace FlowBlast.Bootstrap
 
             ApplyBoardRootScale();
 
-            BoardBoxSpawnService boardBoxSpawnService = new BoardBoxSpawnService(context.BoxFactory, boardRoot);
+            BoardBoxSpawnService boardBoxSpawnService = new BoardBoxSpawnService(
+                context.BoxFactory,
+                boardRoot,
+                context.BoxRegistryService.BoardBoxAccessibilityService);
             boardBoxSpawnService.SpawnLevelBoxes(
                 levelData.BoxPlacements,
                 levelData.BoxCapacity,
@@ -643,7 +649,7 @@ namespace FlowBlast.Bootstrap
 
             for (int i = 0; i < views.Length; i++)
             {
-                views[i].Configure(beltPath, boxBeltParent, colorPalette);
+                views[i].Configure(beltPath, boxBeltParent, colorPalette, context.BoxRegistryService);
                 views[i].ConfigureBoxConveyor(boxConveyorPath, boxBeltParent);
 
                 if (views[i].Model != null)

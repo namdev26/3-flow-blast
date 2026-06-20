@@ -13,11 +13,16 @@ namespace FlowBlast.Services.Board
     {
         private readonly BoxFactory boxFactory;
         private readonly Transform boardRoot;
+        private readonly BoardBoxAccessibilityService boardBoxAccessibilityService;
 
-        public BoardBoxSpawnService(BoxFactory boxFactory, Transform boardRoot)
+        public BoardBoxSpawnService(
+            BoxFactory boxFactory,
+            Transform boardRoot,
+            BoardBoxAccessibilityService boardBoxAccessibilityService)
         {
             this.boxFactory = boxFactory;
             this.boardRoot = boardRoot;
+            this.boardBoxAccessibilityService = boardBoxAccessibilityService;
         }
 
         public void SpawnLevelBoxes(
@@ -40,9 +45,10 @@ namespace FlowBlast.Services.Board
                 LevelBoxPlacement boxPlacement = boxPlacements[i];
                 BoxModel model = boxFactory.CreateModel(boxPlacement.CreateDefinition(safeBoxCapacity));
                 BoxView view = boxFactory.CreateView(model, boardRoot, boxPlacement.LocalPosition);
-                view.Configure(beltPath, beltParent, colorPalette);
+                view.Configure(beltPath, beltParent, colorPalette, boxRegistryService);
                 view.RefreshPresentation();
                 boxRegistryService.Register(model);
+                boardBoxAccessibilityService.Register(model, boxPlacement.LocalPosition);
             }
         }
     }

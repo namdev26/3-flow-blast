@@ -7,6 +7,7 @@ using FlowBlast.Domain;
 using FlowBlast.Patterns.Strategy;
 using FlowBlast.Presentation.Belt;
 using FlowBlast.Services.Belt;
+using FlowBlast.Services.Box;
 using UnityEngine;
 
 namespace FlowBlast.Presentation.Box
@@ -46,6 +47,7 @@ namespace FlowBlast.Presentation.Box
         private Transform boxVisualTransform;
         private Vector3 defaultBoxVisualScale;
         private MaterialPropertyBlock propertyBlock;
+        private BoxRegistryService boxRegistryService;
 
         public BoxModel Model => model;
         public float BeltDistance => beltDistance;
@@ -55,10 +57,12 @@ namespace FlowBlast.Presentation.Box
         public bool IsFlyingToConveyor => isFlyingToConveyor;
         public bool CanReceiveBoardClick =>
             model != null
+            && boxRegistryService != null
             && !isActiveOnMainBelt
             && !isActiveOnBoxConveyor
             && !isFlyingToConveyor
-            && model.CanSendToBelt();
+            && model.CanSendToBelt()
+            && boxRegistryService.CanSelect(model);
 
         private void Awake()
         {
@@ -76,11 +80,16 @@ namespace FlowBlast.Presentation.Box
             }
         }
 
-        public void Configure(IBeltPath path, Transform beltParentTransform, BlockColorPalette palette)
+        public void Configure(
+            IBeltPath path,
+            Transform beltParentTransform,
+            BlockColorPalette palette,
+            BoxRegistryService registryService = null)
         {
             beltPath = path;
             beltParent = beltParentTransform;
             colorPalette = palette;
+            boxRegistryService = registryService;
         }
 
         public void ConfigureBoxConveyor(IBeltPath path, Transform parent)

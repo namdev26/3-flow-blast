@@ -39,7 +39,8 @@ namespace FlowBlast.Data
                 }
             }
 
-            isClosedLoop = closedLoop;
+            bool canUseClosedLoop = waypointLocalPositions.Count >= 3;
+            isClosedLoop = canUseClosedLoop && closedLoop;
             curveStrength = Mathf.Clamp01(strength);
         }
     }

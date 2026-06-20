@@ -121,7 +121,12 @@ namespace FlowBlast.Editor
             }
 
             DrawPathSet(rect, activeEditState, settings, activePathRole, true, zoom, pan);
-            DrawBoxQueue(rect, activeEditState.BoxQueueLocalPosition, settings, zoom, pan, isBoxQueueSelected);
+
+            if (!activeEditState.HasQueuePathIdentity())
+            {
+                DrawBoxQueue(rect, activeEditState.BoxQueueLocalPosition, settings, zoom, pan, isBoxQueueSelected);
+            }
+
             DrawCollectionPoint(rect, activeEditState.CollectionPointLocalPosition, zoom, pan, isCollectionPointSelected);
             Handles.EndGUI();
         }
@@ -356,7 +361,7 @@ namespace FlowBlast.Editor
 
             GUI.Label(
                 new Rect(rect.x + 8f, rect.yMax - 36f, rect.width - 16f, 32f),
-                "All queue paths are visible  |  Drag points directly  |  Click empty: add WP  |  Queue In + Collect are per-level markers  |  Scroll: zoom  |  Alt+Drag: pan",
+                "All queue paths are visible  |  Drag waypoints directly  |  Click empty: add WP  |  Collect is a per-level marker  |  Scroll: zoom  |  Alt+Drag: pan",
                 style);
         }
 
@@ -483,7 +488,8 @@ namespace FlowBlast.Editor
                 return;
             }
 
-            if (HitTestBoxQueue(rect, editState.BoxQueueLocalPosition, zoom, pan, mouse))
+            if (!editState.HasQueuePathIdentity()
+                && HitTestBoxQueue(rect, editState.BoxQueueLocalPosition, zoom, pan, mouse))
             {
                 editState.SelectedWaypointIndex = -1;
                 isBoxQueueSelected = true;

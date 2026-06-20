@@ -531,7 +531,7 @@ namespace FlowBlast.Editor
                 ActiveEditState.CurveStrength = curveStrength;
             }
 
-            if (isBoxQueueSelected)
+            if (isBoxQueueSelected && !ActiveEditState.HasQueuePathIdentity())
             {
                 EditorGUI.BeginChangeCheck();
                 Vector3 queuePosition = EditorGUILayout.Vector3Field("Queue Entry", ActiveEditState.BoxQueueLocalPosition);
@@ -831,7 +831,7 @@ namespace FlowBlast.Editor
                 ActiveEditState.CurveStrength,
                 waypointPrefab);
 
-            if (boxQueueParent != null)
+            if (boxQueueParent != null && (activeQueueIndex < 0 || activeQueueIndex >= queueEditStates.Count))
             {
                 Undo.RecordObject(boxQueueParent, "Apply Queue Entry Position");
                 boxQueueParent.localPosition = ActiveEditState.BoxQueueLocalPosition;
@@ -925,6 +925,12 @@ namespace FlowBlast.Editor
 
         private void SetSharedQueuePosition(Vector3 queuePosition)
         {
+            if (activeQueueIndex >= 0 && activeQueueIndex < queueEditStates.Count)
+            {
+                queueEditStates[activeQueueIndex].SetBoxQueuePosition(queuePosition);
+                return;
+            }
+
             mainEditState.SetBoxQueuePosition(queuePosition);
 
             for (int i = 0; i < queueEditStates.Count; i++)
