@@ -23,6 +23,7 @@ namespace FlowBlast.Services.Block
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
         private readonly List<LevelBlockSpawnRow> blockSpawnRows = new List<LevelBlockSpawnRow>();
         private readonly List<float> queueMergeDistances = new List<float>();
+        private readonly HashSet<int> occupiedRowSlots = new HashSet<int>();
 
         private bool isInitialMainPathPrefill = true;
         private int sequenceIndex;
@@ -265,47 +266,134 @@ namespace FlowBlast.Services.Block
                 return true;
             }
 
-            float normalizedSpawnDistance = NormalizeDistanceOnMainBelt(spawnDistance);
+            BuildOccupiedRowSlots();
+            int preferredSlot = GetPreferredMergeSlot(spawnDistance);
 
-            for (int i = 0; i < queueMergeDistances.Count; i++)
+            if (preferredSlot < 0)
             {
-                float mergeDistance = queueMergeDistances[i];
+                return false;
+            }
 
-                if (!IsDistanceNear(normalizedSpawnDistance, mergeDistance, rowSpacing * 0.5f))
+            spawnDistance = GetDistanceForRowSlot(preferredSlot);
+            return true;
+        }
+
+        private void BuildOccupiedRowSlots()
+        {
+            occupiedRowSlots.Clear();
+            int rowCapacity = GetRowCapacity();
+
+            if (rowCapacity <= 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < activeBlocks.Count; i++)
+            {
+                int slotIndex = GetNearestRowSlotIndex(activeBlocks[i].View.BeltDistance);
+
+                if (slotIndex < 0)
                 {
                     continue;
                 }
 
-                if (!CanSpawnAtMergePoint(mergeDistance))
-                {
-                    return false;
-                }
-
-                spawnDistance = mergeDistance;
-                return true;
+                occupiedRowSlots.Add(slotIndex);
             }
-
-            return true;
         }
 
-        private bool CanSpawnAtMergePoint(float mergeDistance)
+        private int GetPreferredMergeSlot(float preferredDistance)
         {
-            for (int i = 0; i < activeBlocks.Count; i++)
-            {
-                float currentDistance = NormalizeDistanceOnMainBelt(activeBlocks[i].View.BeltDistance);
-                float delta = Mathf.Abs(Mathf.DeltaAngle(
-                    currentDistance / Mathf.Max(beltPath.TotalLength, Mathf.Epsilon) * 360f,
-                    mergeDistance / Mathf.Max(beltPath.TotalLength, Mathf.Epsilon) * 360f))
-                    / 360f
-                    * Mathf.Max(beltPath.TotalLength, Mathf.Epsilon);
+            int preferredSlot = GetNearestRowSlotIndex(preferredDistance);
+            int bestMergeSlot = -1;
+            int bestSlotDelta = int.MaxValue;
+            int rowCapacity = GetRowCapacity();
 
-                if (delta < rowSpacing * 0.9f)
+            for (int i = 0; i < queueMergeDistances.Count; i++)
+            {
+                int mergeSlot = GetNearestRowSlotIndex(queueMergeDistances[i]);
+
+                if (!IsMergeSlotAvailable(mergeSlot))
                 {
-                    return false;
+                    continue;
                 }
+
+                if (preferredSlot < 0)
+                {
+                    return mergeSlot;
+                }
+
+                int slotDelta = Mathf.Abs(mergeSlot - preferredSlot);
+                slotDelta = Mathf.Min(slotDelta, rowCapacity - slotDelta);
+
+                if (slotDelta >= bestSlotDelta)
+                {
+                    continue;
+                }
+
+                bestSlotDelta = slotDelta;
+                bestMergeSlot = mergeSlot;
             }
 
-            return true;
+            return bestMergeSlot;
+        }
+
+        private bool IsMergeSlotAvailable(int mergeSlot)
+        {
+            if (mergeSlot < 0)
+            {
+                return false;
+            }
+
+            return !occupiedRowSlots.Contains(mergeSlot);
+        }
+
+        private int GetNearestRowSlotIndex(float distance)
+        {
+            int rowCapacity = GetRowCapacity();
+
+            if (rowCapacity <= 0)
+            {
+                return -1;
+            }
+
+            float normalizedDistance = NormalizeDistanceOnMainBelt(distance);
+            int slotIndex = Mathf.RoundToInt(normalizedDistance / rowSpacing) % rowCapacity;
+
+            if (slotIndex < 0)
+            {
+                slotIndex += rowCapacity;
+            }
+
+            return slotIndex;
+        }
+
+        private float GetDistanceForRowSlot(int slotIndex)
+        {
+            int rowCapacity = GetRowCapacity();
+
+            if (rowCapacity <= 0)
+            {
+                return 0f;
+            }
+
+            int normalizedSlotIndex = slotIndex % rowCapacity;
+
+            if (normalizedSlotIndex < 0)
+            {
+                normalizedSlotIndex += rowCapacity;
+            }
+
+            return normalizedSlotIndex * rowSpacing;
+        }
+
+        private int GetRowCapacity()
+        {
+            if (beltPath.TotalLength <= Mathf.Epsilon || rowSpacing <= Mathf.Epsilon)
+            {
+                return 0;
+            }
+
+            return Mathf.Max(1, Mathf.FloorToInt(beltPath.TotalLength / rowSpacing));
         }
 
         private float NormalizeDistanceOnMainBelt(float distance)
@@ -316,17 +404,6 @@ namespace FlowBlast.Services.Block
             }
 
             return beltPath.NormalizeDistance(distance) * beltPath.TotalLength;
-        }
-
-        private bool IsDistanceNear(float distanceA, float distanceB, float tolerance)
-        {
-            float pathLength = Mathf.Max(beltPath.TotalLength, Mathf.Epsilon);
-            float delta = Mathf.Abs(Mathf.DeltaAngle(
-                distanceA / pathLength * 360f,
-                distanceB / pathLength * 360f))
-                / 360f
-                * pathLength;
-            return delta <= tolerance;
         }
 
         private bool SpawnRow(LevelBlockSpawnRow spawnRow, float rowDistance)
