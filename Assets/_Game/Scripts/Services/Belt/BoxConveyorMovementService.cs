@@ -50,15 +50,26 @@ namespace FlowBlast.Services.Belt
 
         public bool IsNearCollectionPoint(float beltDistance)
         {
-            if (boxConveyorPath == null)
+            return GetCollectionPointDistanceDelta(beltDistance) <= GetCollectionThresholdNormalized();
+        }
+
+        public float GetCollectionPointDistanceDelta(float beltDistance)
+        {
+            if (boxConveyorPath == null || boxConveyorPath.TotalLength <= Mathf.Epsilon)
             {
-                return false;
+                return float.MaxValue;
             }
 
-            return BeltCollectionUtility.IsNearCollectionPoint(
-                beltDistance,
-                boxConveyorPath.TotalLength,
-                boxConveyorPath.NormalizeDistance(beltDistance));
+            float normalizedDistance = boxConveyorPath.NormalizeDistance(beltDistance);
+            float collectionNormalized = GameConstants.CollectionZoneNormalized;
+            float delta = Mathf.Abs(normalizedDistance - collectionNormalized);
+
+            if (delta > 0.5f)
+            {
+                delta = 1f - delta;
+            }
+
+            return delta;
         }
 
         public void Tick(float deltaTime)
@@ -93,6 +104,16 @@ namespace FlowBlast.Services.Belt
             {
                 conveyorPhase += pathLength;
             }
+        }
+
+        private float GetCollectionThresholdNormalized()
+        {
+            if (boxConveyorPath == null || boxConveyorPath.TotalLength <= Mathf.Epsilon)
+            {
+                return 0f;
+            }
+
+            return GameConstants.CollectionDistanceThreshold / boxConveyorPath.TotalLength;
         }
     }
 }

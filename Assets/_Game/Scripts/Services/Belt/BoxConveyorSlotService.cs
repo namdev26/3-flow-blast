@@ -71,6 +71,29 @@ namespace FlowBlast.Services.Belt
             }
         }
 
+        public bool TryGetSlotIndex(BoxModel box, out int slotIndex)
+        {
+            slotIndex = -1;
+
+            if (box == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < maxSlots; i++)
+            {
+                if (slots[i] != box)
+                {
+                    continue;
+                }
+
+                slotIndex = i;
+                return true;
+            }
+
+            return false;
+        }
+
         public int ActiveCount
         {
             get

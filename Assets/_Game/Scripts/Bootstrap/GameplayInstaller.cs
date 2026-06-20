@@ -387,6 +387,7 @@ namespace FlowBlast.Bootstrap
             blockSpawnService.ConfigureBlockSpacing(BlockBeltLayout.CalculateSpacing(blockPrefab));
             blockSpawnService.ConfigureBeltLanes(
                 levelData != null ? levelData.BeltLaneCount : GameConstants.BeltLaneCount);
+            blockSpawnService.ConfigureQueueMergeDistances(ResolveQueueMergeDistances());
 
             QueueBlockDisplayService queueBlockDisplayService = BuildQueueBlockDisplayService(blockFactory, blockPrefab, levelData);
             blockSpawnService.SetQueueDisplayService(queueBlockDisplayService);
@@ -537,6 +538,34 @@ namespace FlowBlast.Bootstrap
             }
 
             return ResolveVirtualQueuePaths();
+        }
+
+        private List<float> ResolveQueueMergeDistances()
+        {
+            List<float> mergeDistances = new List<float>();
+
+            if (levelData?.MapLayout == null || beltPath == null)
+            {
+                return mergeDistances;
+            }
+
+            IReadOnlyList<QueuePathLayout> queueLayouts = levelData.MapLayout.QueuePaths;
+
+            for (int i = 0; i < queueLayouts.Count; i++)
+            {
+                QueuePathLayout queueLayout = queueLayouts[i];
+
+                if (queueLayout == null)
+                {
+                    continue;
+                }
+
+                Vector3 worldEntryPosition = beltPath.transform.TransformPoint(queueLayout.QueueEntryLocalPosition);
+                float mergeDistance = beltPath.GetClosestDistance(worldEntryPosition);
+                mergeDistances.Add(mergeDistance);
+            }
+
+            return mergeDistances;
         }
 
         private List<IBeltPath> ResolveVirtualQueuePaths()

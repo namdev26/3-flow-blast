@@ -22,7 +22,9 @@ namespace FlowBlast.Services.Block
 
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
         private readonly List<LevelBlockSpawnRow> blockSpawnRows = new List<LevelBlockSpawnRow>();
+        private readonly List<float> queueMergeDistances = new List<float>();
 
+        private bool isInitialMainPathPrefill = true;
         private int sequenceIndex;
         private int blocksInFlightCount;
         private int laneCount = GameConstants.BeltLaneCount;
@@ -63,6 +65,21 @@ namespace FlowBlast.Services.Block
             laneCount = Mathf.Max(1, totalLanes);
         }
 
+        public void ConfigureQueueMergeDistances(IReadOnlyList<float> mergeDistances)
+        {
+            queueMergeDistances.Clear();
+
+            if (mergeDistances == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < mergeDistances.Count; i++)
+            {
+                queueMergeDistances.Add(mergeDistances[i]);
+            }
+        }
+
         public int BacklogCount
         {
             get
@@ -86,6 +103,7 @@ namespace FlowBlast.Services.Block
             blockSpawnRows.Clear();
             sequenceIndex = 0;
             blocksInFlightCount = 0;
+            isInitialMainPathPrefill = true;
 
             if (beltPath is BeltPath beltPathComponent)
             {
@@ -159,6 +177,7 @@ namespace FlowBlast.Services.Block
         private void PrewarmBelt()
         {
             MaintainBeltCoverage();
+            isInitialMainPathPrefill = false;
         }
 
         private void MaintainBeltCoverage()
@@ -173,6 +192,12 @@ namespace FlowBlast.Services.Block
                 }
 
                 float spawnDistance = GetNextSpawnDistance();
+
+                if (!TryResolveRowSpawnDistance(ref spawnDistance))
+                {
+                    sequenceIndex--;
+                    break;
+                }
 
                 if (!SpawnRow(spawnRow, spawnDistance))
                 {
@@ -226,6 +251,82 @@ namespace FlowBlast.Services.Block
             }
 
             return minimumDistance - rowSpacing;
+        }
+
+        private bool TryResolveRowSpawnDistance(ref float spawnDistance)
+        {
+            if (isInitialMainPathPrefill)
+            {
+                return true;
+            }
+
+            if (queueMergeDistances.Count == 0)
+            {
+                return true;
+            }
+
+            float normalizedSpawnDistance = NormalizeDistanceOnMainBelt(spawnDistance);
+
+            for (int i = 0; i < queueMergeDistances.Count; i++)
+            {
+                float mergeDistance = queueMergeDistances[i];
+
+                if (!IsDistanceNear(normalizedSpawnDistance, mergeDistance, rowSpacing * 0.5f))
+                {
+                    continue;
+                }
+
+                if (!CanSpawnAtMergePoint(mergeDistance))
+                {
+                    return false;
+                }
+
+                spawnDistance = mergeDistance;
+                return true;
+            }
+
+            return true;
+        }
+
+        private bool CanSpawnAtMergePoint(float mergeDistance)
+        {
+            for (int i = 0; i < activeBlocks.Count; i++)
+            {
+                float currentDistance = NormalizeDistanceOnMainBelt(activeBlocks[i].View.BeltDistance);
+                float delta = Mathf.Abs(Mathf.DeltaAngle(
+                    currentDistance / Mathf.Max(beltPath.TotalLength, Mathf.Epsilon) * 360f,
+                    mergeDistance / Mathf.Max(beltPath.TotalLength, Mathf.Epsilon) * 360f))
+                    / 360f
+                    * Mathf.Max(beltPath.TotalLength, Mathf.Epsilon);
+
+                if (delta < rowSpacing * 0.9f)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private float NormalizeDistanceOnMainBelt(float distance)
+        {
+            if (beltPath.TotalLength <= Mathf.Epsilon)
+            {
+                return 0f;
+            }
+
+            return beltPath.NormalizeDistance(distance) * beltPath.TotalLength;
+        }
+
+        private bool IsDistanceNear(float distanceA, float distanceB, float tolerance)
+        {
+            float pathLength = Mathf.Max(beltPath.TotalLength, Mathf.Epsilon);
+            float delta = Mathf.Abs(Mathf.DeltaAngle(
+                distanceA / pathLength * 360f,
+                distanceB / pathLength * 360f))
+                / 360f
+                * pathLength;
+            return delta <= tolerance;
         }
 
         private bool SpawnRow(LevelBlockSpawnRow spawnRow, float rowDistance)
