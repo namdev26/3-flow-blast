@@ -22,6 +22,7 @@ namespace FlowBlast.Services.Block
         private readonly BoxBlastService boxBlastService;
 
         private const bool EnableSpawnDebugLogs = false;
+        private const float SpawnSpacingSafetyRatio = 0.6f;
 
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
         private readonly List<LevelBlockSpawnRow> blockSpawnRows = new List<LevelBlockSpawnRow>();
@@ -354,6 +355,12 @@ namespace FlowBlast.Services.Block
 
             float spawnDistance = slotIndex * rowSpacing;
 
+            if (IsTooCloseToExistingRow(spawnDistance))
+            {
+                reason = "too-close";
+                return false;
+            }
+
             if (!TryResolveRowSpawnDistance(spawnDistance))
             {
                 reason = "merge-window-rejected";
@@ -382,6 +389,23 @@ namespace FlowBlast.Services.Block
             score = bestMergeDelta;
             reason = "valid";
             return true;
+        }
+
+        private bool IsTooCloseToExistingRow(float spawnDistance)
+        {
+            float minSpacing = rowSpacing * SpawnSpacingSafetyRatio;
+
+            for (int i = 0; i < activeBlocks.Count; i++)
+            {
+                float distanceDelta = GetWrappedDistanceDelta(spawnDistance, activeBlocks[i].View.BeltDistance);
+
+                if (distanceDelta < minSpacing)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void BuildOccupiedRowSlots(bool[] occupiedSlots)
