@@ -15,12 +15,6 @@ namespace FlowBlast.Services.Level
 
         public bool IsLose(out string reason)
         {
-            if (blockSpawnService.BacklogCount >= maxBacklogBlocks)
-            {
-                reason = "Belt backlog exceeded.";
-                return true;
-            }
-
             reason = string.Empty;
             return false;
         }

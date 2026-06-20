@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using FlowBlast.Core.Constants;
 using FlowBlast.Data;
 using FlowBlast.Domain;
@@ -20,7 +21,7 @@ namespace FlowBlast.Services.Block
         private readonly BlockCollectPresentationService blockCollectPresentationService;
         private readonly BoxBlastService boxBlastService;
 
-        private const float MergeDistanceToleranceFactor = 0.35f;
+        private const bool EnableSpawnDebugLogs = false;
 
         private readonly List<BlockRuntimeEntry> activeBlocks = new List<BlockRuntimeEntry>();
         private readonly List<LevelBlockSpawnRow> blockSpawnRows = new List<LevelBlockSpawnRow>();
@@ -193,9 +194,7 @@ namespace FlowBlast.Services.Block
                     break;
                 }
 
-                float spawnDistance = GetNextSpawnDistance();
-
-                if (!TryResolveRowSpawnDistance(ref spawnDistance))
+                if (!TryGetNextSpawnDistance(out float spawnDistance))
                 {
                     sequenceIndex--;
                     break;
@@ -214,15 +213,26 @@ namespace FlowBlast.Services.Block
 
         private int GetMissingRowCount()
         {
-            int beltCapacity = GetBeltCapacity();
+            int rowCapacity = GetRowCapacity();
 
-            if (beltCapacity <= 0)
+            if (rowCapacity <= 0)
             {
                 return 0;
             }
 
-            int missingBlocks = Mathf.Max(0, beltCapacity - activeBlocks.Count);
-            return missingBlocks / laneCount;
+            bool[] occupiedSlots = new bool[rowCapacity];
+            BuildOccupiedRowSlots(occupiedSlots);
+            int missingRows = 0;
+
+            for (int slotIndex = 0; slotIndex < occupiedSlots.Length; slotIndex++)
+            {
+                if (!occupiedSlots[slotIndex])
+                {
+                    missingRows++;
+                }
+            }
+
+            return missingRows;
         }
 
         private int GetBeltCapacity()
@@ -233,86 +243,215 @@ namespace FlowBlast.Services.Block
                 laneCount);
         }
 
-        private float GetNextSpawnDistance()
+        private bool TryGetNextSpawnDistance(out float spawnDistance)
         {
-            if (activeBlocks.Count == 0)
+            spawnDistance = 0f;
+            int rowCapacity = GetRowCapacity();
+
+            if (rowCapacity <= 0)
             {
-                return 0f;
+                LogSpawnDebug("Spawn search aborted: row capacity is 0.");
+                return false;
             }
 
-            float minimumDistance = activeBlocks[0].View.BeltDistance;
+            bool[] occupiedSlots = new bool[rowCapacity];
+            BuildOccupiedRowSlots(occupiedSlots);
+            string diagnostics = string.Empty;
 
-            for (int i = 1; i < activeBlocks.Count; i++)
+            if (TryGetClosestValidEmptySlotToMerge(occupiedSlots, out int slotIndex, out diagnostics))
             {
-                float currentDistance = activeBlocks[i].View.BeltDistance;
-
-                if (currentDistance < minimumDistance)
-                {
-                    minimumDistance = currentDistance;
-                }
+                spawnDistance = slotIndex * rowSpacing;
+                LogSpawnDebug($"Spawn slot selected. slot={slotIndex}, distance={spawnDistance:F3}. {diagnostics}");
+                return true;
             }
 
-            return minimumDistance - rowSpacing;
+            LogSpawnDebug($"No valid spawn slot found. {diagnostics}");
+            return false;
         }
 
-        private bool TryResolveRowSpawnDistance(ref float spawnDistance)
+        private bool TryGetClosestValidEmptySlotToMerge(bool[] occupiedSlots, out int slotIndex, out string diagnostics)
         {
-            if (isInitialMainPathPrefill)
+            slotIndex = -1;
+            diagnostics = string.Empty;
+
+            if (occupiedSlots == null || occupiedSlots.Length == 0)
             {
-                return true;
+                diagnostics = "Occupied slot buffer is empty.";
+                return false;
+            }
+
+            float bestScore = float.MaxValue;
+            bool foundValidSlot = false;
+            StringBuilder builder = EnableSpawnDebugLogs ? new StringBuilder() : null;
+
+            if (builder != null)
+            {
+                builder.Append("Slots[");
+            }
+
+            for (int i = 0; i < occupiedSlots.Length; i++)
+            {
+                bool isValid = TryGetSpawnSlotScore(occupiedSlots, i, out float score, out string reason);
+
+                if (builder != null)
+                {
+                    if (i > 0)
+                    {
+                        builder.Append(" | ");
+                    }
+
+                    builder.Append(i);
+                    builder.Append(':');
+                    builder.Append(reason);
+
+                    if (isValid)
+                    {
+                        builder.Append(" score=");
+                        builder.Append(score.ToString("F3"));
+                    }
+                }
+
+                if (!isValid)
+                {
+                    continue;
+                }
+
+                if (score >= bestScore)
+                {
+                    continue;
+                }
+
+                bestScore = score;
+                slotIndex = i;
+                foundValidSlot = true;
+            }
+
+            if (builder != null)
+            {
+                builder.Append(']');
+                diagnostics = builder.ToString();
+            }
+
+            return foundValidSlot;
+        }
+
+        private bool TryGetSpawnSlotScore(bool[] occupiedSlots, int slotIndex, out float score, out string reason)
+        {
+            score = float.MaxValue;
+            reason = string.Empty;
+
+            if (occupiedSlots == null || slotIndex < 0 || slotIndex >= occupiedSlots.Length)
+            {
+                reason = "out-of-range";
+                return false;
+            }
+
+            if (occupiedSlots[slotIndex])
+            {
+                reason = "occupied";
+                return false;
+            }
+
+            float spawnDistance = slotIndex * rowSpacing;
+
+            if (!TryResolveRowSpawnDistance(spawnDistance))
+            {
+                reason = "merge-window-rejected";
+                return false;
             }
 
             if (queueMergeDistances.Count == 0)
             {
+                score = slotIndex;
+                reason = "valid-no-merge";
                 return true;
             }
 
-            return HasAvailableMergeWindow(spawnDistance);
-        }
-
-        private bool HasAvailableMergeWindow(float spawnDistance)
-        {
-            float mergeTolerance = GetMergeDistanceTolerance();
+            float bestMergeDelta = float.MaxValue;
 
             for (int i = 0; i < queueMergeDistances.Count; i++)
             {
-                float distanceToMergePoint = GetWrappedDistanceDelta(spawnDistance, queueMergeDistances[i]);
+                float mergeDelta = GetWrappedDistanceDelta(spawnDistance, queueMergeDistances[i]);
 
-                if (distanceToMergePoint > mergeTolerance)
+                if (mergeDelta < bestMergeDelta)
                 {
-                    continue;
+                    bestMergeDelta = mergeDelta;
                 }
-
-                if (IsSpawnWindowOccupied(queueMergeDistances[i], mergeTolerance))
-                {
-                    continue;
-                }
-
-                return true;
             }
 
-            return false;
+            score = bestMergeDelta;
+            reason = "valid";
+            return true;
         }
 
-        private bool IsSpawnWindowOccupied(float mergeDistance, float mergeTolerance)
+        private void BuildOccupiedRowSlots(bool[] occupiedSlots)
         {
+            if (occupiedSlots == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < occupiedSlots.Length; i++)
+            {
+                occupiedSlots[i] = false;
+            }
+
             for (int i = 0; i < activeBlocks.Count; i++)
             {
-                float activeDistance = activeBlocks[i].View.BeltDistance;
-                float distanceToActiveRow = GetWrappedDistanceDelta(activeDistance, mergeDistance);
-
-                if (distanceToActiveRow < mergeTolerance)
+                if (!TryGetRowSlotIndex(activeBlocks[i].View.BeltDistance, occupiedSlots.Length, out int slotIndex))
                 {
-                    return true;
+                    continue;
                 }
-            }
 
-            return false;
+                occupiedSlots[slotIndex] = true;
+            }
         }
 
-        private float GetMergeDistanceTolerance()
+        private bool TryGetRowSlotIndex(float distance, int rowCapacity, out int slotIndex)
         {
-            return rowSpacing * MergeDistanceToleranceFactor;
+            slotIndex = -1;
+
+            if (rowCapacity <= 0 || rowSpacing <= Mathf.Epsilon)
+            {
+                return false;
+            }
+
+            float normalizedDistance = NormalizeDistanceOnMainBelt(distance);
+            int nearestSlotIndex = Mathf.RoundToInt(normalizedDistance / rowSpacing);
+            slotIndex = WrapRowSlotIndex(nearestSlotIndex, rowCapacity);
+            return true;
+        }
+
+        private int WrapRowSlotIndex(int slotIndex, int rowCapacity)
+        {
+            if (rowCapacity <= 0)
+            {
+                return 0;
+            }
+
+            int wrappedSlotIndex = slotIndex % rowCapacity;
+
+            if (wrappedSlotIndex < 0)
+            {
+                wrappedSlotIndex += rowCapacity;
+            }
+
+            return wrappedSlotIndex;
+        }
+
+        private bool TryResolveRowSpawnDistance(float spawnDistance)
+        {
+            return true;
+        }
+
+        private void LogSpawnDebug(string message)
+        {
+            if (!EnableSpawnDebugLogs)
+            {
+                return;
+            }
+
+            Debug.Log($"[FlowBlast][BlockSpawnService] {message}");
         }
 
         private float GetWrappedDistanceDelta(float firstDistance, float secondDistance)
